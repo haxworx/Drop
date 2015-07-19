@@ -89,8 +89,9 @@ void FileListAdd(File_t *list, char *path, unsigned int mode)
 		c->mode = mode;
 	}
 }
+#define SLASH '/'
 
-File_t * CheckDirFiles(const char *path)
+File_t * FilesInDirectory(const char *path)
 {
 	DIR *d = NULL;
 	struct dirent *dirent = NULL;
@@ -116,7 +117,7 @@ File_t * CheckDirFiles(const char *path)
 		}
 		
 		char path_full[PATH_MAX] = { 0 };
-		snprintf(path_full, PATH_MAX, "%s/%s", path, dirent->d_name);
+		snprintf(path_full, PATH_MAX, "%s%c%s", path, SLASH, dirent->d_name);
 
 		struct stat fstats;
 		stat(path_full, &fstats);
@@ -168,26 +169,42 @@ void CompareFileLists(File_t *first, File_t *second, const char *cmd, char *arg)
 	
 
 }
-void ChangeInDirectory(const char *path, const char *cmd, char *arg)
-{
-	File_t *file_list_zero = NULL;
-	File_t *file_list_one = NULL; 
 
+void MonitorDir(const char *path, const char *cmd, char *arg)
+{
 	for (;;)
 	{
-		file_list_zero = CheckDirFiles(path);	
+		File_t *file_list_one = FilesInDirectory(path);	
+
 		sleep(3);
-		file_list_one  = CheckDirFiles(path);
-		CompareFileLists(file_list_zero, file_list_one,
+
+		File_t *file_list_two = FilesInDirectory(path);
+
+		CompareFileLists(file_list_one, file_list_two,
 			cmd, arg);
-		free(file_list_zero);
+
 		free(file_list_one); 
+		free(file_list_two);
 	}
 
 }
+
+#define DIRECTORY "Pictures"
+
 int main(int argc, char **argv)
 {
-	ChangeInDirectory("/home/al/Pictures", "scp", "user@host:");
+	char *env_home = getenv("HOME");
+	if (env_home == NULL)
+	{
+		Error("Could not get ENV 'HOME'");
+	}
+
+	char watch_dir[PATH_MAX] = { 0 };
+
+	snprintf(watch_dir, PATH_MAX, "%s%c%s", env_home, SLASH, DIRECTORY);
+	printf("watching: %s\n", watch_dir);
+
+	MonitorDir(watch_dir, "scp", "user@host:");
 
 	return EXIT_SUCCESS;
 }
