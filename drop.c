@@ -85,10 +85,11 @@ void FileListAdd(File_t *list, char *path, unsigned int mode)
 		
 		c = c->next; c->next = NULL;
 
-		strncpy(c->path, path, PATH_MAX);
+		strlcpy(c->path, path, PATH_MAX);
 		c->mode = mode;
 	}
 }
+
 #define SLASH '/'
 
 File_t * FilesInDirectory(const char *path)
