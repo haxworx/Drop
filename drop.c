@@ -162,11 +162,13 @@ struct command_t {
 
 void execute(const char *path, command_t command)
 {
+	#ifdef PRODUCTION
 	char ebuf[8192] = { 0 };
 	snprintf(ebuf, 8192, "%s %s %s", command.cmd, command.args, path);
 	system(ebuf);
-	#ifdef DEBUF
+	#ifdef DEBUG
 	printf("executing: %s\n", ebuf);
+	#endif
 	#endif
 }
 
@@ -189,16 +191,11 @@ File_t * FileExists(File_t *list, char *filename)
 void ActOnFileDel(File_t *first, File_t *second, command_t command)
 {
 	File_t *f = first; 
-	
 
 	while (f)
 	{
 		File_t *exists = FileExists(second, f->path);
-		if (exists)
-		{
-
-		}
-		else
+		if (!exists)
 		{
 			printf("del file %s\n", f->path);
 			execute(f->path, command);
@@ -234,11 +231,7 @@ void ActOnFileAdd(File_t *first, File_t *second, command_t command)
 	while (f)
 	{
 		File_t *exists = FileExists(first, f->path);
-		if (exists)
-		{
-
-		}
-		else 
+		if (!exists)
 		{
 			printf("add file %s\n", f->path);
 			execute(f->path, command);
