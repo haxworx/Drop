@@ -25,12 +25,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 // Watch the directory e.g. $HOME/Pictures
-// then if there's a new one use scp or whatever 
-// and copy it to the server...
-// I'm using it like a drop box, it runs in bg
-// and whenever I find a good image online I drag it to $HOME/Pictures
-// then it's saved!!!
-
+// SCPs files to server
 // Maybe you want to use another agent or I advise to set no pass on your
 // SSH keys maybe!
 
@@ -65,6 +60,23 @@ struct File_t {
 	unsigned int mode;
 	File_t *next;
 };
+
+
+void FileListFree(File_t *list)
+{
+	File_t *c = list;
+
+	while (c)	
+	{
+		File_t *next = c->next;	
+		if (next)
+		{
+			free(c);
+		}
+
+		c = next;
+	}
+}
 
 void FileListAdd(File_t *list, char *path, unsigned int mode)
 {
@@ -173,21 +185,20 @@ void CompareFileLists(File_t *first, File_t *second, const char *cmd, char *arg)
 
 void MonitorDir(const char *path, const char *cmd, char *arg)
 {
+	File_t *file_list_one = FilesInDirectory(path);	
+
 	for (;;)
 	{
-		File_t *file_list_one = FilesInDirectory(path);	
-
 		sleep(3);
 
 		File_t *file_list_two = FilesInDirectory(path);
 
 		CompareFileLists(file_list_one, file_list_two,
 			cmd, arg);
-
-		free(file_list_one); 
-		free(file_list_two);
+		
+		FileListFree(file_list_one);	
+		file_list_one = file_list_two;
 	}
-
 }
 
 #define DIRECTORY "Pictures"
