@@ -262,8 +262,13 @@ int main(int argc, char **argv)
 	}
 
 	char watch_dir[PATH_MAX] = { 0 };
-
+	
 	snprintf(watch_dir, PATH_MAX, "%s%c%s", env_home, SLASH, DIRECTORY);
+	struct stat fstats;
+	if (stat(watch_dir, &fstats) < 0)
+	{
+		mkdir(watch_dir, 0755);
+	}
 
 	MonitorPath(watch_dir);
 
