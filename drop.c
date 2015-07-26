@@ -147,42 +147,90 @@ File_t * FilesInDirectory(const char *path)
 	return list;
 }
 
-void CompareFileLists(File_t *first, File_t *second, const char *cmd, char *arg)
+typedef struct command_t command_t;
+struct command_t {
+	char cmd[8192];
+	char args[8192];
+};
+
+File_t * FileExists(File_t *list, char *filename)
 {
-	File_t *f = second;
+	File_t *f = list;
 
 	while (f)
 	{
-		File_t *n = first;
-		bool Found = false;
-		while (n)
+		if (!strcmp(f->path, filename))
 		{
-			if (!strcmp(f->path, n->path))
-			{
-				Found = true;
-			}
-
-			n = n->next;
+			return f;
 		}
-		if (! Found)
+		f = f->next;
+	}
+
+	return NULL;
+}
+
+void ActOnFileDel(File_t *first, File_t *second, command_t command)
+{
+	File_t *f = first; 
+	
+
+	while (f)
+	{
+		File_t *exists = FileExists(second, f->path);
+		if (exists)
 		{
-			char execute[8192] = { 0 };
-			snprintf(execute, 8192, "%s %s %s", cmd, f->path, arg);
-			system(execute);
-			printf("new file %s\n", f->path);
-			printf("executing: %s\n", execute);
+
+		}
+		else
+		{
+			printf("del file %s\n", f->path);
 		}
 
 		f = f->next;	
 	}
-
-	
-
 }
 
-void MonitorDir(const char *path, const char *cmd, char *arg)
+void ActOnFileAdd(File_t *first, File_t *second, command_t command)
+{
+	File_t *f = second;
+	
+	while (f)
+	{
+		File_t *exists = FileExists(first, f->path);
+		if (exists)
+		{
+
+		}
+		else 
+		{
+			char execute[8192] = { 0 };
+			snprintf(execute, 8192, "%s %s %s", command.cmd, f->path, command.args);
+			system(execute);
+			printf("new file %s\n", f->path);
+			#ifdef DEBUG
+			printf("executing: %s\n", execute);
+			#endif
+		}	
+	
+		f = f->next;
+	}
+}
+
+void CompareFileLists(File_t *first, File_t *second)
+{
+	command_t commands[2] = {
+		{ "scp", "user@host:" },
+		{ "git rm", "u"},
+	};
+
+	ActOnFileAdd(first, second, commands[0]);
+	ActOnFileDel(first, second, commands[1]);
+}
+
+void MonitorPath(const char *path)
 {
 	File_t *file_list_one = FilesInDirectory(path);	
+	printf("watching: %s\n", path);
 
 	for (;;)
 	{
@@ -190,8 +238,7 @@ void MonitorDir(const char *path, const char *cmd, char *arg)
 
 		File_t *file_list_two = FilesInDirectory(path);
 
-		CompareFileLists(file_list_one, file_list_two,
-			cmd, arg);
+		CompareFileLists(file_list_one, file_list_two);
 		
 		FileListFree(file_list_one);	
 		file_list_one = file_list_two;
@@ -211,9 +258,8 @@ int main(int argc, char **argv)
 	char watch_dir[PATH_MAX] = { 0 };
 
 	snprintf(watch_dir, PATH_MAX, "%s%c%s", env_home, SLASH, DIRECTORY);
-	printf("watching: %s\n", watch_dir);
 
-	MonitorDir(watch_dir, "scp", "user@host:");
+	MonitorPath(watch_dir);
 
 	return EXIT_SUCCESS;
 }
