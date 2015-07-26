@@ -59,6 +59,7 @@ typedef struct File_t File_t;
 struct File_t {
 	char path[PATH_MAX];
 	unsigned int mode;
+	ssize_t size;
 	File_t *next;
 };
 
@@ -76,7 +77,7 @@ void FileListFree(File_t *list)
 	}
 }
 
-void FileListAdd(File_t *list, char *path, unsigned int mode)
+void FileListAdd(File_t *list, char *path, ssize_t size, unsigned int mode)
 {
 	File_t *c = list;
 	
@@ -97,6 +98,7 @@ void FileListAdd(File_t *list, char *path, unsigned int mode)
 
 		strlcpy(c->path, path, PATH_MAX);
 		c->mode = mode;
+		c->size = size;
 	}
 }
 #ifndef WINDOWS
@@ -143,7 +145,7 @@ File_t * FilesInDirectory(const char *path)
 		}
 		else
 		{
-			FileListAdd(list, path_full, fstats.st_mode);
+			FileListAdd(list, path_full, fstats.st_size, fstats.st_mode);
 		}
 	}
 	
@@ -205,6 +207,24 @@ void ActOnFileDel(File_t *first, File_t *second, command_t command)
 	}
 }
 
+void ActOnFileMod(File_t *first, File_t *second, command_t command)
+{
+	File_t *c = second;
+	while (c)
+	{
+		File_t *exists = FileExists(first, c->path);
+		if (exists)
+		{
+			if (c->size != exists->size)
+			{
+				printf("mod file %s\n", c->path);
+			}
+		}
+
+		c = c->next;	
+	}
+}
+
 void ActOnFileAdd(File_t *first, File_t *second, command_t command)
 {
 	File_t *f = second;
@@ -235,6 +255,7 @@ void CompareFileLists(File_t *first, File_t *second)
 
 	ActOnFileAdd(first, second, commands[0]);
 	ActOnFileDel(first, second, commands[1]);
+	ActOnFileMod(first, second, commands[1]);
 }
 
 void MonitorPath(const char *path)
