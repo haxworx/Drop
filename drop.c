@@ -163,7 +163,7 @@ struct command_t {
 void execute(const char *path, command_t command)
 {
 	char ebuf[8192] = { 0 };
-	snprintf(ebuf, 8192, "%s %s %s", command.cmd, path, command.args);
+	snprintf(ebuf, 8192, "%s %s %s", command.cmd, command.args, path);
 	system(ebuf);
 	#ifdef DEBUF
 	printf("executing: %s\n", ebuf);
@@ -201,6 +201,7 @@ void ActOnFileDel(File_t *first, File_t *second, command_t command)
 		else
 		{
 			printf("del file %s\n", f->path);
+			execute(f->path, command);
 		}
 
 		f = f->next;	
@@ -218,6 +219,7 @@ void ActOnFileMod(File_t *first, File_t *second, command_t command)
 			if (c->size != exists->size)
 			{
 				printf("mod file %s\n", c->path);
+				execute(c->path, command);
 			}
 		}
 
@@ -249,13 +251,13 @@ void ActOnFileAdd(File_t *first, File_t *second, command_t command)
 void CompareFileLists(File_t *first, File_t *second)
 {
 	command_t commands[2] = {
-		{ "scp", "user@host:" },
-		{ "git rm", "u"},
+		{ "git", "add" },
+		{ "git", "rm" },
 	};
 
 	ActOnFileAdd(first, second, commands[0]);
 	ActOnFileDel(first, second, commands[1]);
-	ActOnFileMod(first, second, commands[1]);
+	ActOnFileMod(first, second, commands[0]);
 }
 
 void MonitorPath(const char *path)
