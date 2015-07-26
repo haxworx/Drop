@@ -99,8 +99,12 @@ void FileListAdd(File_t *list, char *path, unsigned int mode)
 		c->mode = mode;
 	}
 }
-
+#ifndef WINDOWS
 #define SLASH '/'
+#else
+#define SLASH '\\'
+#endif
+
 
 File_t * FilesInDirectory(const char *path)
 {
