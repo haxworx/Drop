@@ -69,10 +69,7 @@ void FileListFree(File_t *list)
 	while (c)	
 	{
 		File_t *next = c->next;	
-		if (next)
-		{
-			free(c);
-		}
+		free(c);
 
 		c = next;
 	}
@@ -220,3 +217,5 @@ int main(int argc, char **argv)
 
 	return EXIT_SUCCESS;
 }
+
+
