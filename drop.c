@@ -54,6 +54,7 @@ void Error(char *fmt, ...)
         exit(EXIT_FAILURE);
 }
 
+
 typedef struct File_t File_t;
 struct File_t {
 	char path[PATH_MAX];
@@ -153,6 +154,16 @@ struct command_t {
 	char args[8192];
 };
 
+void execute(const char *path, command_t command)
+{
+	char ebuf[8192] = { 0 };
+	snprintf(ebuf, 8192, "%s %s %s", command.cmd, path, command.args);
+	system(ebuf);
+	#ifdef DEBUF
+	printf("executing: %s\n", ebuf);
+	#endif
+}
+
 File_t * FileExists(File_t *list, char *filename)
 {
 	File_t *f = list;
@@ -203,13 +214,8 @@ void ActOnFileAdd(File_t *first, File_t *second, command_t command)
 		}
 		else 
 		{
-			char execute[8192] = { 0 };
-			snprintf(execute, 8192, "%s %s %s", command.cmd, f->path, command.args);
-			system(execute);
-			printf("new file %s\n", f->path);
-			#ifdef DEBUG
-			printf("executing: %s\n", execute);
-			#endif
+			printf("add file %s\n", f->path);
+			execute(f->path, command);
 		}	
 	
 		f = f->next;
