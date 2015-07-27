@@ -112,7 +112,6 @@ File_t * FilesInDirectory(const char *path)
 {
 	DIR *d = NULL;
 	struct dirent *dirent = NULL;
-
 	
 	d = opendir(path);
 	if (d == NULL)
@@ -162,14 +161,11 @@ struct command_t {
 
 void execute(const char *path, command_t command)
 {
-	#ifdef PRODUCTION
 	char ebuf[8192] = { 0 };
-	snprintf(ebuf, 8192, "%s %s %s", command.cmd, command.args, path);
-	system(ebuf);
-	#ifdef DEBUG
+//	chmod(path, 0755);
+	snprintf(ebuf, 8192, "%s '%s' %s", command.cmd, path, command.args);
 	printf("executing: %s\n", ebuf);
-	#endif
-	#endif
+	system(ebuf);
 }
 
 File_t * FileExists(File_t *list, char *filename)
@@ -198,7 +194,7 @@ void ActOnFileDel(File_t *first, File_t *second, command_t command)
 		if (!exists)
 		{
 			printf("del file %s\n", f->path);
-			execute(f->path, command);
+			//execute(f->path, command);
 		}
 
 		f = f->next;	
@@ -216,7 +212,7 @@ void ActOnFileMod(File_t *first, File_t *second, command_t command)
 			if (c->size != exists->size)
 			{
 				printf("mod file %s\n", c->path);
-				execute(c->path, command);
+				//execute(c->path, command);
 			}
 		}
 
@@ -244,13 +240,13 @@ void ActOnFileAdd(File_t *first, File_t *second, command_t command)
 void CompareFileLists(File_t *first, File_t *second)
 {
 	command_t commands[2] = {
-		{ "git", "add" },
-		{ "git", "rm" },
+		{ "scp", "al@crux:Pictures" },
+		{ "echo", "doing notthing" },
 	};
 
 	ActOnFileAdd(first, second, commands[0]);
 	ActOnFileDel(first, second, commands[1]);
-	ActOnFileMod(first, second, commands[0]);
+	ActOnFileMod(first, second, commands[1]);
 }
 
 void MonitorPath(const char *path)
