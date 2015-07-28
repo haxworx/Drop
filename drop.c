@@ -237,6 +237,13 @@ void ActOnFileAdd(File_t *first, File_t *second, command_t command)
 	}
 }
 
+typedef struct config_t config_t;
+struct config_t {
+	char directory[PATH_MAX];
+	char remote[PATH_MAX];
+	char ssh[8192];
+};
+
 void CompareFileLists(File_t *first, File_t *second)
 {
 	command_t commands[2] = {
@@ -267,26 +274,86 @@ void MonitorPath(const char *path)
 	}
 }
 
+void Trim(char *string)
+{
+	char *s = string;
+
+	while (s)
+	{
+		if (*s == '\r' || *s == '\n')
+		{
+			*s = '\0';
+			return;
+		}
+		s++;
+	}	
+}
+
 #define DIRECTORY "Pictures"
 
-int main(int argc, char **argv)
+#define DROP_CONFIG "drop.cfg"
+
+char *GetOption(char *line, char *name)
 {
+	char *sub = NULL;
+
+	Trim(line);
+	
+	sub = strstr(line, name);
+	if (sub)
+	{
+		sub += strlen(name) + 1; 
+		return strdup(sub);
+	}
+
+	return NULL;
+}
+
+#define CONFIG_DIRECTORY "DIRECTORY"
+#define CONFIG_REMOTE "REMOTE_DIRECTORY"
+#define CONFIG_SSH "SSH_LOGIN"
+
+config_t *LoadConfig(void)
+{
+	config_t *config = calloc(1, sizeof(config_t));
 	char *env_home = getenv("HOME");
 	if (env_home == NULL)
 	{
 		Error("Could not get ENV 'HOME'");
 	}
 
-	char watch_dir[PATH_MAX] = { 0 };
-	
-	snprintf(watch_dir, PATH_MAX, "%s%c%s", env_home, SLASH, DIRECTORY);
-	struct stat fstats;
-	if (stat(watch_dir, &fstats) < 0)
+	FILE *f = fopen(DROP_CONFIG, "r");
+	if (f == NULL)
 	{
-		mkdir(watch_dir, 0755);
+		Error("Could not open %s", DROP_CONFIG);
 	}
 
-	MonitorPath(watch_dir);
+	char line[1024] = { 0 };
+#define BUFSIZE 8192
+#define CONFIG_MAX_LINES 20
+	char map[BUFSIZE * CONFIG_MAX_LINES] = { 0 };
+	
+	while ((fgets(line, sizeof(line), f)) != NULL)
+	{
+		strlcat(map, line, sizeof(map));
+	}
+	
+	fclose(f);
+
+	char *directory = GetOption(map, CONFIG_DIRECTORY);
+	if (directory)
+	{
+		strlcpy(config->directory, directory, PATH_MAX);
+	}
+
+	return config;
+}
+
+int main(int argc, char **argv)
+{
+	config_t *config = LoadConfig();	
+
+	MonitorPath(config->directory);
 
 	return EXIT_SUCCESS;
 }
