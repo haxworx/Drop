@@ -278,7 +278,7 @@ void Trim(char *string)
 {
 	char *s = string;
 
-	while (s)
+	while (*s)
 	{
 		if (*s == '\r' || *s == '\n')
 		{
