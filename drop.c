@@ -374,18 +374,21 @@ config_t *LoadConfig(void)
 	if (directory)
 	{
 		strlcpy(config->directory, directory, PATH_MAX);
+		free(directory);
 	}
 
 	char *remote_directory = GetOption(map, CONFIG_REMOTE);
 	if (remote_directory)
 	{
 		strlcpy(config->remote_directory, remote_directory, PATH_MAX);
+		free(remote_directory);
 	}
 
 	char *ssh_string = GetOption(map, CONFIG_SSH);
 	if (ssh_string)
 	{
 		strlcpy(config->ssh_string, ssh_string, sizeof(config->ssh_string));
+		free(ssh_string);
 	}
 	
 	CheckConfig(*config);
