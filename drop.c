@@ -107,15 +107,16 @@ void FileListAdd(File_t *list, char *path, ssize_t size, unsigned int mode)
 #define SLASH '\\'
 #endif
 
+#include <errno.h>
 
 File_t * FilesInDirectory(const char *path)
 {
 	DIR *d = NULL;
 	struct dirent *dirent = NULL;
-	
 	d = opendir(path);
 	if (d == NULL)
 	{
+		printf("here %s %s\n", path, strerror(errno));
 		Error("opendir()");
 	}
 
@@ -155,16 +156,15 @@ File_t * FilesInDirectory(const char *path)
 
 typedef struct command_t command_t;
 struct command_t {
-	char cmd[8192];
+	char *cmd; 
 	char args[8192];
 };
 
 void execute(const char *path, command_t command)
 {
 	char ebuf[8192] = { 0 };
-//	chmod(path, 0755);
-	snprintf(ebuf, 8192, "%s '%s' %s", command.cmd, path, command.args);
-	printf("executing: %s\n", ebuf);
+	snprintf(ebuf, sizeof(ebuf), "%s '%s' %s >/dev/null 2>&1",
+					 command.cmd, path, command.args);
 	system(ebuf);
 }
 
@@ -237,26 +237,29 @@ void ActOnFileAdd(File_t *first, File_t *second, command_t command)
 	}
 }
 
+#define COMMAND_MAX 2048
+
 typedef struct config_t config_t;
 struct config_t {
 	char directory[PATH_MAX];
-	char remote[PATH_MAX];
-	char ssh[8192];
+	char remote_directory[PATH_MAX];
+	char ssh_string[COMMAND_MAX];
 };
 
-void CompareFileLists(File_t *first, File_t *second)
+void CompareFileLists(config_t config, File_t *first, File_t *second)
 {
-	command_t commands[2] = {
-		{ "scp", "al@crux:Pictures" },
-		{ "echo", "doing notthing" },
-	};
+	command_t command;
+	command.cmd = "scp";	
 
-	ActOnFileAdd(first, second, commands[0]);
-	ActOnFileDel(first, second, commands[1]);
-	ActOnFileMod(first, second, commands[1]);
+	snprintf(command.args, sizeof(command.args), "%s:%s", 
+		config.ssh_string, config.remote_directory);	
+	
+	ActOnFileAdd(first, second, command);
+	ActOnFileDel(first, second, command);
+	ActOnFileMod(first, second, command);
 }
 
-void MonitorPath(const char *path)
+void MonitorPath(const char *path, config_t config)
 {
 	File_t *file_list_one = FilesInDirectory(path);	
 	printf("watching: %s\n", path);
@@ -267,7 +270,7 @@ void MonitorPath(const char *path)
 
 		File_t *file_list_two = FilesInDirectory(path);
 
-		CompareFileLists(file_list_one, file_list_two);
+		CompareFileLists(config, file_list_one, file_list_two);
 		
 		FileListFree(file_list_one);	
 		file_list_one = file_list_two;
@@ -293,17 +296,19 @@ void Trim(char *string)
 
 #define DROP_CONFIG "drop.cfg"
 
-char *GetOption(char *line, char *name)
+char *GetOption(char *text, char *name)
 {
-	char *sub = NULL;
+	char *i = NULL;
 
-	Trim(line);
-	
-	sub = strstr(line, name);
-	if (sub)
+	i = strstr(text, name);
+	if (i)
 	{
-		sub += strlen(name) + 1; 
-		return strdup(sub);
+		i += strlen(name) + 1; 
+		char *e = strchr(i, '\n');
+		*e = '\0';
+		char *value = strdup(i);
+		*e = '\n'; // don't break text
+		return value;
 	}
 
 	return NULL;
@@ -312,6 +317,31 @@ char *GetOption(char *line, char *name)
 #define CONFIG_DIRECTORY "DIRECTORY"
 #define CONFIG_REMOTE "REMOTE_DIRECTORY"
 #define CONFIG_SSH "SSH_LOGIN"
+
+void CheckConfig(config_t config)
+{
+	bool isError = false;
+
+	if (strlen(config.directory) == 0)
+	{
+		isError = true;
+	}
+
+	if (strlen(config.remote_directory) == 0)
+	{
+		isError = true;
+	}
+
+	if (strlen(config.ssh_string) == 0)	
+	{
+		isError = true;
+	}
+
+	if (isError)
+	{
+		Error("Broken config file %s", DROP_CONFIG);
+	}
+}
 
 config_t *LoadConfig(void)
 {
@@ -346,6 +376,20 @@ config_t *LoadConfig(void)
 		strlcpy(config->directory, directory, PATH_MAX);
 	}
 
+	char *remote_directory = GetOption(map, CONFIG_REMOTE);
+	if (remote_directory)
+	{
+		strlcpy(config->remote_directory, remote_directory, PATH_MAX);
+	}
+
+	char *ssh_string = GetOption(map, CONFIG_SSH);
+	if (ssh_string)
+	{
+		strlcpy(config->ssh_string, ssh_string, sizeof(config->ssh_string));
+	}
+	
+	CheckConfig(*config);
+
 	return config;
 }
 
@@ -353,7 +397,7 @@ int main(int argc, char **argv)
 {
 	config_t *config = LoadConfig();	
 
-	MonitorPath(config->directory);
+	MonitorPath(config->directory, *config);
 
 	return EXIT_SUCCESS;
 }
