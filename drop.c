@@ -302,11 +302,10 @@ void Trim(char *string)
 	}	
 }
 
-#define DIRECTORY "Pictures"
 
 #define DROP_CONFIG_FILE "drop.cfg"
 
-char *GetOption(char *text, char *name)
+int ConfigValue(char *text, char *name, char *destination, ssize_t len)
 {
 	char *i = NULL;
 
@@ -318,17 +317,22 @@ char *GetOption(char *text, char *name)
 		*e = '\0';
 		char *value = strdup(i);
 		*e = '\n'; // don't break text
-		return value;
+		
+		strlcpy(destination, value, len);  
+		
+		free(value);
+	
+		return 1;
 	}
 
-	return NULL;
+	return 0;
 }
 
 #define CONFIG_DIRECTORY "DIRECTORY"
 #define CONFIG_REMOTE "REMOTE_DIRECTORY"
 #define CONFIG_SSH "SSH_LOGIN"
 
-void CheckConfig(config_t config)
+void ConfigCheck(config_t config)
 {
 	bool isError = false;
 
@@ -353,7 +357,7 @@ void CheckConfig(config_t config)
 	}
 }
 
-config_t *LoadConfig(void)
+config_t *ConfigLoad(void)
 {
 	config_t *config = calloc(1, sizeof(config_t));
 	char *env_home = getenv("HOME");
@@ -372,36 +376,41 @@ config_t *LoadConfig(void)
 #define BUFSIZE 8192
 #define CONFIG_MAX_LINES 20
 	char map[BUFSIZE * CONFIG_MAX_LINES] = { 0 };
-	
+
+	int line_count = 0;	
 	while ((fgets(line, sizeof(line), f)) != NULL)
 	{
+		if (line_count >= CONFIG_MAX_LINES)
+		{
+			Error("Unexpected content in %s", DROP_CONFIG_FILE);	
+		}
+
 		strlcat(map, line, sizeof(map));
+		++line_count;
 	}
 	
 	fclose(f);
 
-	char *directory = GetOption(map, CONFIG_DIRECTORY);
-	if (directory)
+	int result = ConfigValue(map, CONFIG_DIRECTORY, config->directory, PATH_MAX);
+	if (!result)
 	{
-		strlcpy(config->directory, directory, PATH_MAX);
-		free(directory);
+		// Could check config on missing option basis...
 	}
 
-	char *remote_directory = GetOption(map, CONFIG_REMOTE);
-	if (remote_directory)
+	result = ConfigValue(map, CONFIG_REMOTE, config->remote_directory, PATH_MAX);
+	if (!result)
 	{
-		strlcpy(config->remote_directory, remote_directory, PATH_MAX);
-		free(remote_directory);
-	}
-
-	char *ssh_string = GetOption(map, CONFIG_SSH);
-	if (ssh_string)
-	{
-		strlcpy(config->ssh_string, ssh_string, sizeof(config->ssh_string));
-		free(ssh_string);
+		// Could check config on missing option basis...
 	}
 	
-	CheckConfig(*config);
+	result = ConfigValue(map, CONFIG_SSH, config->ssh_string, sizeof(config->ssh_string));
+	if (!result)
+	{
+		// Could check config on missing option basis...
+	}
+
+	// Check the configuration file generically	
+	ConfigCheck(*config);
 
 	return config;
 }
@@ -410,7 +419,7 @@ config_t *LoadConfig(void)
 
 int main(int argc, char **argv)
 {
-	config_t *config = LoadConfig();	
+	config_t *config = ConfigLoad();	
 
 	MonitorPath(config->directory, *config);
 
