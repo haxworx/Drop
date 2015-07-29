@@ -41,6 +41,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <unistd.h>
 
+bool debugging = false;
+
 void Error(char *fmt, ...)
 {
         char message[8192] = { 0 };
@@ -259,6 +261,9 @@ void CompareFileLists(config_t config, File_t *first, File_t *second)
 	ActOnFileMod(first, second, command);
 }
 
+// time between scans of path in MonitorPath
+unsigned int changes_interval = 3;
+
 void MonitorPath(const char *path, config_t config)
 {
 	File_t *file_list_one = FilesInDirectory(path);	
@@ -266,7 +271,12 @@ void MonitorPath(const char *path, config_t config)
 
 	for (;;)
 	{
-		sleep(3);
+		sleep(changes_interval);
+
+		if (debugging)
+		{
+			puts("PING!");
+		}
 
 		File_t *file_list_two = FilesInDirectory(path);
 
@@ -294,7 +304,7 @@ void Trim(char *string)
 
 #define DIRECTORY "Pictures"
 
-#define DROP_CONFIG "drop.cfg"
+#define DROP_CONFIG_FILE "drop.cfg"
 
 char *GetOption(char *text, char *name)
 {
@@ -339,7 +349,7 @@ void CheckConfig(config_t config)
 
 	if (isError)
 	{
-		Error("Broken config file %s", DROP_CONFIG);
+		Error("Broken config file %s", DROP_CONFIG_FILE);
 	}
 }
 
@@ -352,10 +362,10 @@ config_t *LoadConfig(void)
 		Error("Could not get ENV 'HOME'");
 	}
 
-	FILE *f = fopen(DROP_CONFIG, "r");
+	FILE *f = fopen(DROP_CONFIG_FILE, "r");
 	if (f == NULL)
 	{
-		Error("Could not open %s", DROP_CONFIG);
+		Error("Could not open %s", DROP_CONFIG_FILE);
 	}
 
 	char line[1024] = { 0 };
@@ -395,6 +405,8 @@ config_t *LoadConfig(void)
 
 	return config;
 }
+
+// Lord Bogotron is reborn!!!
 
 int main(int argc, char **argv)
 {
