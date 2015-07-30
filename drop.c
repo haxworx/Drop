@@ -24,10 +24,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 */
 
-// Watch the directory e.g. $HOME/Pictures
-// SCPs files to server
-// Maybe you want to use another agent or I advise to set no pass on your
-// SSH keys maybe!
+/*
+Lord Bogotron says,
+
+"This maniac uses OpenBSD for development. OpenBSD provides additional string
+manipulation functions not offered by the standard C library. I'm sure we'll
+port it over for you later on."
+
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,6 +70,7 @@ struct File_t {
 	File_t *next;
 };
 
+// haircut anyone???
 void Trim(char *string)
 {
         char *s = string;
@@ -214,6 +219,7 @@ bool ActOnFileDel(File_t *first, File_t *second, command_t command)
 		if (!exists)
 		{
 			printf("del file %s\n", f->path);
+			isChanged = true;
 			//execute(f->path, command);
 		}
 
@@ -258,8 +264,8 @@ bool ActOnFileAdd(File_t *first, File_t *second, command_t command)
 		if (!exists)
 		{
 			printf("add file %s\n", f->path);
-			execute(f->path, command);
 			isChanged = true;
+			execute(f->path, command);
 		}	
 	
 		f = f->next;
@@ -288,6 +294,7 @@ void SaveFileState(File_t *list)
 	File_t *c = list->next;
 	while (c)
 	{
+		// we could refactor this...just include stat struct rather than individual members...ahhh...f*ck it!
 		fprintf(f, STATE_FILE_FORMAT, c->path, (unsigned int) c->size, (unsigned int)c->mode, (unsigned int) c->ctime);  
 		fprintf(f, "\n");
 
@@ -314,19 +321,35 @@ void CompareFileLists(config_t config, File_t *first, File_t *second)
 	snprintf(command.args, sizeof(command.args), "%s:%s", 
 		config.ssh_string, config.remote_directory);	
 
+	bool store_state = false;
 	bool modifications = false;	
-	modifications = ActOnFileAdd(first, second, command);
-	modifications = ActOnFileDel(first, second, command);
-	modifications = ActOnFileMod(first, second, command);
 
-	// this is bullshit jeremy!
-	if (1 || modifications)
+	modifications = ActOnFileAdd(first, second, command);
+	if (modifications)
+	{
+		store_state = true;
+	}
+
+	modifications = ActOnFileDel(first, second, command);
+	if (modifications)
+	{
+		store_state = true;	
+	}
+
+	modifications = ActOnFileMod(first, second, command);
+	if (modifications)
+	{
+		store_state = true;
+	}
+
+	// this s/is/was bullshit jeremy!
+	if (store_state)
 	{
 		SaveFileState(second);
 	}
 }
 
-
+// Am I going to do a poo Jez???
 void Prepare(void)
 {
 	struct stat fstats;
@@ -540,8 +563,7 @@ config_t *ConfigLoad(void)
 	return config;
 }
 
-// Lord Bogotron is reborn!!!
-
+// I think I'm going to blow my beans!
 
 int main(int argc, char **argv)
 {
