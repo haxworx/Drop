@@ -62,9 +62,24 @@ struct File_t {
 	char path[PATH_MAX];
 	unsigned int mode;
 	ssize_t size;
+	unsigned int ctime;
 	File_t *next;
 };
 
+void Trim(char *string)
+{
+        char *s = string;
+
+        while (*s)
+        {
+                if (*s == '\r' || *s == '\n')
+                {
+                        *s = '\0';
+                        return;
+                }
+                s++;
+        }
+}
 
 void FileListFree(File_t *list)
 {
@@ -79,7 +94,7 @@ void FileListFree(File_t *list)
 	}
 }
 
-void FileListAdd(File_t *list, char *path, ssize_t size, unsigned int mode)
+void FileListAdd(File_t *list, char *path, ssize_t size, unsigned int mode, unsigned int ctime)
 {
 	File_t *c = list;
 	
@@ -101,8 +116,10 @@ void FileListAdd(File_t *list, char *path, ssize_t size, unsigned int mode)
 		strlcpy(c->path, path, PATH_MAX);
 		c->mode = mode;
 		c->size = size;
+		c->ctime = ctime;
 	}
 }
+
 #ifndef WINDOWS
 #define SLASH '/'
 #else
@@ -138,16 +155,16 @@ File_t * FilesInDirectory(const char *path)
 		char path_full[PATH_MAX] = { 0 };
 		snprintf(path_full, PATH_MAX, "%s%c%s", path, SLASH, dirent->d_name);
 
-		struct stat fstats;
-		stat(path_full, &fstats);
+		struct stat fs;
+		stat(path_full, &fs);
 		
-		if (S_ISDIR(fstats.st_mode))
+		if (S_ISDIR(fs.st_mode))
 		{
 			continue;
 		}
 		else
 		{
-			FileListAdd(list, path_full, fstats.st_size, fstats.st_mode);
+			FileListAdd(list, path_full, fs.st_size, fs.st_mode, fs.st_ctime);
 		}
 	}
 	
@@ -186,9 +203,10 @@ File_t * FileExists(File_t *list, char *filename)
 	return NULL;
 }
 
-void ActOnFileDel(File_t *first, File_t *second, command_t command)
+bool ActOnFileDel(File_t *first, File_t *second, command_t command)
 {
 	File_t *f = first; 
+	bool isChanged = false;
 
 	while (f)
 	{
@@ -201,11 +219,15 @@ void ActOnFileDel(File_t *first, File_t *second, command_t command)
 
 		f = f->next;	
 	}
+
+	return isChanged;
 }
 
-void ActOnFileMod(File_t *first, File_t *second, command_t command)
+bool ActOnFileMod(File_t *first, File_t *second, command_t command)
 {
 	File_t *c = second;
+	bool isChanged = false;
+
 	while (c)
 	{
 		File_t *exists = FileExists(first, c->path);
@@ -214,17 +236,21 @@ void ActOnFileMod(File_t *first, File_t *second, command_t command)
 			if (c->size != exists->size)
 			{
 				printf("mod file %s\n", c->path);
+				isChanged = true;
 				//execute(c->path, command);
 			}
 		}
 
 		c = c->next;	
 	}
+
+	return isChanged;
 }
 
-void ActOnFileAdd(File_t *first, File_t *second, command_t command)
+bool ActOnFileAdd(File_t *first, File_t *second, command_t command)
 {
 	File_t *f = second;
+	bool isChanged = false;
 	
 	while (f)
 	{
@@ -233,10 +259,42 @@ void ActOnFileAdd(File_t *first, File_t *second, command_t command)
 		{
 			printf("add file %s\n", f->path);
 			execute(f->path, command);
+			isChanged = true;
 		}	
 	
 		f = f->next;
 	}
+
+	return isChanged;
+}
+
+#define STATE_FILE_FORMAT "%s %u %u %u"
+#define DROP_CONFIG_DIRECTORY ".drop"
+#define DROP_CONFIG_FILE "drop.cfg"
+#define DROP_STATE_FILE "state"
+
+void SaveFileState(File_t *list)
+{
+	char state_file_path[PATH_MAX] = { 0 };
+
+        snprintf(state_file_path, PATH_MAX, "%s%c%s", DROP_CONFIG_DIRECTORY, SLASH, DROP_STATE_FILE);
+
+	FILE *f = fopen(state_file_path, "w");
+	if (f == NULL)
+	{
+		Error("SaveFileState: fopen");
+	}
+
+	File_t *c = list->next;
+	while (c)
+	{
+		fprintf(f, STATE_FILE_FORMAT, c->path, (unsigned int) c->size, (unsigned int)c->mode, (unsigned int) c->ctime);  
+		fprintf(f, "\n");
+
+		c = c->next;
+	}
+
+	fclose(f);
 }
 
 #define COMMAND_MAX 2048
@@ -255,10 +313,96 @@ void CompareFileLists(config_t config, File_t *first, File_t *second)
 
 	snprintf(command.args, sizeof(command.args), "%s:%s", 
 		config.ssh_string, config.remote_directory);	
+
+	bool modifications = false;	
+	modifications = ActOnFileAdd(first, second, command);
+	modifications = ActOnFileDel(first, second, command);
+	modifications = ActOnFileMod(first, second, command);
+
+	// this is bullshit jeremy!
+	if (1 || modifications)
+	{
+		SaveFileState(second);
+	}
+}
+
+
+void Prepare(void)
+{
+	struct stat fstats;
+
+	if (stat(DROP_CONFIG_DIRECTORY, &fstats) < 0)
+	{
+		mkdir(DROP_CONFIG_DIRECTORY, 0777);
+	}
+
+	if (! S_ISDIR(fstats.st_mode))
+	{
+		Error("%s is not a directory", DROP_CONFIG_DIRECTORY);
+	}
+}
+
+
+File_t *ListFromStateFile(const char *state_file_path)
+{
+	FILE *f = fopen(state_file_path, "r");
+	if (f == NULL)
+	{
+		Error("ListFromStateFile: %s", state_file_path);
+	}
+
+	char path[PATH_MAX] = { 0 };
+	unsigned int s, m, t;
+
+	File_t *list = calloc(1, sizeof(File_t));
+	if (list == NULL)
+	{
+		Error("ListFromStateFile: calloc");
+	}
+
+	char line[1024] = { 0 };
+	while((fgets(line, sizeof(line), f)) != NULL) 
+	{
+		Trim(line);
+		int result = sscanf(line, STATE_FILE_FORMAT, path, &s, &m, &t);
+		if (result == 4)
+		{
+			FileListAdd(list, path, s, m, t);
+		}				
+		memset(line, 0, sizeof(line));
+	}
+
+	fclose(f);
+
+	return list;
+}
+
+File_t *FirstRun(const char *path)
+{
+	char state_file_path[PATH_MAX] = { 0 };
+
+	snprintf(state_file_path, PATH_MAX, "%s%c%s", DROP_CONFIG_DIRECTORY, SLASH, DROP_STATE_FILE);
+
+	struct stat fstats;
 	
-	ActOnFileAdd(first, second, command);
-	ActOnFileDel(first, second, command);
-	ActOnFileMod(first, second, command);
+	File_t *list = NULL;
+	
+	if (stat(state_file_path, &fstats) < 0)
+	{
+		if (debugging)
+		{
+			printf("this is the first run\n");
+		}
+
+		list = FilesInDirectory(path);	
+	} 
+	else
+	{
+		list = ListFromStateFile(state_file_path);
+	}
+
+	
+	return list;
 }
 
 // time between scans of path in MonitorPath
@@ -266,7 +410,7 @@ unsigned int changes_interval = 3;
 
 void MonitorPath(const char *path, config_t config)
 {
-	File_t *file_list_one = FilesInDirectory(path);	
+	File_t *file_list_one = FirstRun(path); // FilesInDirectory(path);	
 	printf("watching: %s\n", path);
 
 	for (;;)
@@ -286,24 +430,6 @@ void MonitorPath(const char *path, config_t config)
 		file_list_one = file_list_two;
 	}
 }
-
-void Trim(char *string)
-{
-	char *s = string;
-
-	while (*s)
-	{
-		if (*s == '\r' || *s == '\n')
-		{
-			*s = '\0';
-			return;
-		}
-		s++;
-	}	
-}
-
-
-#define DROP_CONFIG_FILE "drop.cfg"
 
 int ConfigValue(char *text, char *name, char *destination, ssize_t len)
 {
@@ -360,16 +486,15 @@ void ConfigCheck(config_t config)
 config_t *ConfigLoad(void)
 {
 	config_t *config = calloc(1, sizeof(config_t));
-	char *env_home = getenv("HOME");
-	if (env_home == NULL)
-	{
-		Error("Could not get ENV 'HOME'");
-	}
 
-	FILE *f = fopen(DROP_CONFIG_FILE, "r");
+	char config_file_path[PATH_MAX] = { 0 };
+
+	snprintf(config_file_path, PATH_MAX, "%s%c%s", DROP_CONFIG_DIRECTORY, SLASH, DROP_CONFIG_FILE);
+
+	FILE *f = fopen(config_file_path, "r");
 	if (f == NULL)
 	{
-		Error("Could not open %s", DROP_CONFIG_FILE);
+		Error("Could not open %s", config_file_path);
 	}
 
 	char line[1024] = { 0 };
@@ -382,7 +507,7 @@ config_t *ConfigLoad(void)
 	{
 		if (line_count >= CONFIG_MAX_LINES)
 		{
-			Error("Unexpected content in %s", DROP_CONFIG_FILE);	
+			Error("Unexpected content in %s", config_file_path);	
 		}
 
 		strlcat(map, line, sizeof(map));
@@ -417,8 +542,11 @@ config_t *ConfigLoad(void)
 
 // Lord Bogotron is reborn!!!
 
+
 int main(int argc, char **argv)
 {
+	Prepare();
+
 	config_t *config = ConfigLoad();	
 
 	MonitorPath(config->directory, *config);
