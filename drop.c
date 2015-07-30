@@ -178,20 +178,6 @@ File_t * FilesInDirectory(const char *path)
 	return list;
 }
 
-typedef struct command_t command_t;
-struct command_t {
-	char *cmd; 
-	char args[8192];
-};
-
-void execute(const char *path, command_t command)
-{
-	char ebuf[8192] = { 0 };
-	snprintf(ebuf, sizeof(ebuf), "%s '%s' %s >/dev/null 2>&1",
-					 command.cmd, path, command.args);
-	system(ebuf);
-}
-
 File_t * FileExists(File_t *list, char *filename)
 {
 	File_t *f = list;
@@ -208,7 +194,7 @@ File_t * FileExists(File_t *list, char *filename)
 	return NULL;
 }
 
-bool ActOnFileDel(File_t *first, File_t *second, command_t command)
+bool ActOnFileDel(File_t *first, File_t *second)
 {
 	File_t *f = first; 
 	bool isChanged = false;
@@ -220,7 +206,6 @@ bool ActOnFileDel(File_t *first, File_t *second, command_t command)
 		{
 			printf("del file %s\n", f->path);
 			isChanged = true;
-			//execute(f->path, command);
 		}
 
 		f = f->next;	
@@ -229,7 +214,7 @@ bool ActOnFileDel(File_t *first, File_t *second, command_t command)
 	return isChanged;
 }
 
-bool ActOnFileMod(File_t *first, File_t *second, command_t command)
+bool ActOnFileMod(File_t *first, File_t *second)
 {
 	File_t *c = second;
 	bool isChanged = false;
@@ -243,7 +228,6 @@ bool ActOnFileMod(File_t *first, File_t *second, command_t command)
 			{
 				printf("mod file %s\n", c->path);
 				isChanged = true;
-				//execute(c->path, command);
 			}
 		}
 
@@ -253,7 +237,7 @@ bool ActOnFileMod(File_t *first, File_t *second, command_t command)
 	return isChanged;
 }
 
-bool ActOnFileAdd(File_t *first, File_t *second, command_t command)
+bool ActOnFileAdd(File_t *first, File_t *second)
 {
 	File_t *f = second;
 	bool isChanged = false;
@@ -265,7 +249,6 @@ bool ActOnFileAdd(File_t *first, File_t *second, command_t command)
 		{
 			printf("add file %s\n", f->path);
 			isChanged = true;
-			execute(f->path, command);
 		}	
 	
 		f = f->next;
@@ -315,28 +298,22 @@ struct config_t {
 
 void CompareFileLists(config_t config, File_t *first, File_t *second)
 {
-	command_t command;
-	command.cmd = "scp";	
-
-	snprintf(command.args, sizeof(command.args), "%s:%s", 
-		config.ssh_string, config.remote_directory);	
-
 	bool store_state = false;
 	bool modifications = false;	
 
-	modifications = ActOnFileAdd(first, second, command);
+	modifications = ActOnFileAdd(first, second);
 	if (modifications)
 	{
 		store_state = true;
 	}
 
-	modifications = ActOnFileDel(first, second, command);
+	modifications = ActOnFileDel(first, second);
 	if (modifications)
 	{
 		store_state = true;	
 	}
 
-	modifications = ActOnFileMod(first, second, command);
+	modifications = ActOnFileMod(first, second);
 	if (modifications)
 	{
 		store_state = true;
