@@ -1,27 +1,36 @@
 #!/usr/bin/env python
+
+# Clearly I don't use Python much!!!
+
+from threading import Thread
 import subprocess
 from tkinter import *
+from queue import Queue
+import time
 
 class Application(Frame):
 	def __init__(self, master):
 		super(Application, self).__init__(master)
+		self.t = Thread(target=self.worker)
+		self.active = False;
 		self.grid()
 		self.create_widgets()
-		self.is_running = 0
+
+	def worker(self):
+		#exe = self.entry.get()
+		#self.proc = subprocess.check_output(exe)
+		#string = self.proc.decode("utf-8")
+		self.listbox.insert(0, "hello mom")
+	
 	def start(self):
-		self.listbox.insert(0, self.entry.get())	
-		string = self.entry.get()
-		self.p = subprocess.check_output(string)
-		self.is_running = 1
-		self.after(1000, update_result)
+		if self.active == False:
+			self.active = True
+			self.t.daemon = True
+			self.t.start()
 		
 	def stop(self):
-		self.listbox.insert(0,"hello")
-	def update_result(self):
-		if self.is_running:
-			bytes = self.p.subprocess.check_output()	
-			result = bytes.decode("utf-8")
-			self.listbox.insert(0, result)
+		self.t.kill()
+		self.active = False;
 
 	def create_widgets(self):
 		self.frame = Frame(self)
