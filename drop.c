@@ -32,7 +32,7 @@ manipulation functions not offered by the standard C library. I'm sure we'll
 port it over for you later on."
 
 */
-
+#define _XOPEN_SOURCE 99999
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -42,8 +42,23 @@ port it over for you later on."
 #include <stdbool.h>
 #include <time.h>
 #include <sys/stat.h>
-
 #include <unistd.h>
+
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
+
+#ifndef strlcpy
+size_t strlcpy(char *d, char const *s, size_t n)
+{
+    return snprintf(d, n, "%s", s);
+}
+
+size_t strlcat(char *d, char const *s, size_t n)
+{
+    return snprintf(d, n, "%s%s", d, s);
+}
+#endif
 
 bool debugging = false;
 
@@ -296,7 +311,7 @@ struct config_t {
 	char ssh_string[COMMAND_MAX];
 };
 
-void CompareFileLists(config_t config, File_t *first, File_t *second)
+void CompareFileLists(File_t *first, File_t *second)
 {
 	bool store_state = false;
 	bool modifications = false;	
@@ -408,7 +423,7 @@ File_t *FirstRun(const char *path)
 // time between scans of path in MonitorPath
 unsigned int changes_interval = 3;
 
-void MonitorPath(const char *path, config_t config)
+void MonitorPath(const char *path)
 {
 	File_t *file_list_one = FirstRun(path); // FilesInDirectory(path);	
 	printf("watching: %s\n", path);
@@ -424,7 +439,7 @@ void MonitorPath(const char *path, config_t config)
 
 		File_t *file_list_two = FilesInDirectory(path);
 
-		CompareFileLists(config, file_list_one, file_list_two);
+		CompareFileLists(file_list_one, file_list_two);
 		
 		FileListFree(file_list_one);	
 		file_list_one = file_list_two;
@@ -443,7 +458,7 @@ int ConfigValue(char *text, char *name, char *destination, ssize_t len)
 		*e = '\0';
 		char *value = strdup(i);
 		*e = '\n'; // don't break text
-		
+		printf("value: %s\n", value);	
 		strlcpy(destination, value, len);  
 		
 		free(value);
@@ -540,15 +555,25 @@ config_t *ConfigLoad(void)
 	return config;
 }
 
+
+void Usage(void)
+{
+	Error("drop <DIRECTORY>");
+}
 // I think I'm going to blow my beans!
 
 int main(int argc, char **argv)
 {
+	if (argc != 2)
+	{
+		Usage();
+	}
+
+	char *directory = argv[1];
+	
 	Prepare();
 
-	config_t *config = ConfigLoad();	
-
-	MonitorPath(config->directory, *config);
+	MonitorPath(directory);
 
 	return EXIT_SUCCESS;
 }

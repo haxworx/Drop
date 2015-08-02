@@ -1,4 +1,8 @@
+SOURCE=drop.c
+CFLAGS=-std=c99 -Wall -Werror -pedantic
+EXEC=drop
+
 default:
-	gcc -std=c99 -Wall -Werror -pedantic drop.c -o drop
+	gcc $(CFLAGS) $(SOURCE) -o $(EXEC)
 clean:
-	rm drop
+	rm $(EXEC)

@@ -26,11 +26,9 @@ class Application(Frame):
                 self.process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False)
 		
                 def update_textbox():
-                    text = self.process.stdout.readline()
-                    line = text.decode()
-                    sys.stdout.write(line)
-                    sys.stdout.flush()
-                    self.textbox.insert(END, text)
+                    self.line = self.process.stdout.readline()
+                    self.line = self.line.decode("utf-8")
+                    self.textbox.insert(END, self.line)
                     self.myParent.after(0, update_textbox)
                 update_textbox()
 
@@ -54,20 +52,20 @@ class Application(Frame):
                 # This stuff gives me nightmares...nevermind!
                 self.frame = Frame(self)
                 self.frame.grid()
-                self.label = Label(self.frame, text = "Command to Run").grid(row=0, column = 0)
+                #self.label = Label(self.frame, text = "Run").grid(row=0, column = 0)
                 self.entry = Entry(self.frame)
-                self.entry.grid(row=0, column = 1)
-                self.button = Button(self.frame, text = "Run", command = self.start).grid(row=0, column=2)
+                self.entry.grid(row=1, column = 0)
+                self.button = Button(self.frame, text = "Run", command = self.start).grid(row=2, column=0)
 
                 self.stop_button = Button(self.frame, text = "Stop", command = self.stop)
-                self.stop_button.grid(row=0, column =3)
+                self.stop_button.grid(row=3, column = 0)
 
-                self.textbox = Text(self.frame )
-                self.textbox.grid(row=1, column = 0, columnspan=4 ,sticky=W+E+N+S)
+                self.textbox = Text(self.frame, width=400)
+                self.textbox.grid(row=5, column = 4,sticky=W+E+N+S)
 def main():
         root = Tk()
         root.title("I've got the Bogotron blues...")
-        root.geometry("400x300")
+        root.geometry("500x400")
         app = Application(root)
         root.mainloop()
 
