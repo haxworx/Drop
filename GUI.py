@@ -10,23 +10,26 @@ import time
 
 class Application(Frame):
 	def __init__(self, master):
+		self.myParent = master;
 		super(Application, self).__init__(master)
-		self.t = Thread(target=self.worker)
 		self.active = False;
 		self.grid()
 		self.create_widgets()
+	def test(self, string):
+		print("pressed the bum button\n")
+		p = subprocess.Popen(string, stdout=subprocess.PIPE)
+		out, err = p.communicate()
+		print(out.decode())
+	#	self.textbox.insert(INSERT, out.decode()) this is breaking!!!!
 
-	def worker(self):
-		#exe = self.entry.get()
-		#self.proc = subprocess.check_output(exe)
-		#string = self.proc.decode("utf-8")
-		self.listbox.insert(0, "hello mom")
+	def worker(self, string):
+		self.active = False;
+		t = Thread(target=self.test, args=(string,))
+		t.start()
 	
 	def start(self):
-		if self.active == False:
-			self.active = True
-			self.t.daemon = True
-			self.t.start()
+		exe = self.entry.get()
+		self.worker(exe)
 		
 	def stop(self):
 		self.t.kill()
@@ -43,8 +46,8 @@ class Application(Frame):
 		self.stop_button = Button(self.frame, text = "Stop", command = self.stop)
 		self.stop_button.grid(row=0, column =3)
 		
-		self.listbox = Listbox(self.frame )
-		self.listbox.grid(row=1, column = 0, columnspan=4 ,sticky=W+E+N+S)
+		self.textbox = Text(self.frame )
+		self.textbox.grid(row=1, column = 0, columnspan=4 ,sticky=W+E+N+S)
 def main():
 	root = Tk()
 	root.title("Bogotron Controller")
