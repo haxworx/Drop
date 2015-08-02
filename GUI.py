@@ -9,7 +9,7 @@ from queue import Queue
 import time
 import os
 import signal 
-
+import shlex
 		
 class Application(Frame):
 	def __init__(self, master):
@@ -20,16 +20,13 @@ class Application(Frame):
 		self.grid()
 		self.create_widgets()
 
-	def work(self, string):
-		self.process = subprocess.Popen(string, stdout=subprocess.PIPE, shell = True) 
-	
-		while True:
-			line = self.process.stdout.readline()
-			if line == '' and self.process.poll != True:
-				break
-			text = line.decode("utf-8")
-			#self.textbox.insert(0, text)
-			print(text)
+	def work(self, cmd):
+		self.process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False) 
+		# This is okay for programs that terminate...
+		# We wan't full control !!!	
+		for line in iter(self.process.stdout.readline, ''):
+			sys.stdout.write(line.decode())
+			sys.stdout.flush()
 
 	def worker(self, string):
 		self.active = False;
@@ -39,8 +36,8 @@ class Application(Frame):
 		
 	
 	def start(self):
-		exe = self.entry.get()
-		self.worker(exe)
+		cmd = self.entry.get()
+		self.worker(cmd)
 		
 	def stop(self):
 		#os.kill(self.process.pid, signal.SIGKILL)
@@ -62,7 +59,7 @@ class Application(Frame):
 		self.textbox.grid(row=1, column = 0, columnspan=4 ,sticky=W+E+N+S)
 def main():
 	root = Tk()
-	root.title("Something Blue...")
+	root.title("I've got the Bogotron blues...")
 	root.geometry("400x300")
 	app = Application(root)
 	root.mainloop()
