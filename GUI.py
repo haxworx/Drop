@@ -14,14 +14,22 @@ import signal
 class Application(Frame):
 	def __init__(self, master):
 		self.myParent = master;
-		self.pro = None
 		super(Application, self).__init__(master)
 		self.active = False;
+		self.process = None
 		self.grid()
 		self.create_widgets()
 
 	def work(self, string):
-		self.pro = subprocess.call(string, shell=True)
+		self.process = subprocess.Popen(string, stdout=subprocess.PIPE, shell = True) 
+	
+		while True:
+			line = self.process.stdout.readline()
+			if line == '' and self.process.poll != True:
+				break
+			text = line.decode("utf-8")
+			#self.textbox.insert(0, text)
+			print(text)
 
 	def worker(self, string):
 		self.active = False;
@@ -35,9 +43,11 @@ class Application(Frame):
 		self.worker(exe)
 		
 	def stop(self):
-		self.pro.terminate()
+		#os.kill(self.process.pid, signal.SIGKILL)
+		self.process.terminate()
 
 	def create_widgets(self):
+		# This stuff gives me nightmares...nevermind!
 		self.frame = Frame(self)
 		self.frame.grid()
 		self.label = Label(self.frame, text = "Command to Run").grid(row=0, column = 0)
@@ -48,11 +58,11 @@ class Application(Frame):
 		self.stop_button = Button(self.frame, text = "Stop", command = self.stop)
 		self.stop_button.grid(row=0, column =3)
 		
-		#self.textbox = Text(self.frame )
-		#self.textbox.grid(row=1, column = 0, columnspan=4 ,sticky=W+E+N+S)
+		self.textbox = Text(self.frame )
+		self.textbox.grid(row=1, column = 0, columnspan=4 ,sticky=W+E+N+S)
 def main():
 	root = Tk()
-	root.title("Bogotron Controller")
+	root.title("Something Blue...")
 	root.geometry("400x300")
 	app = Application(root)
 	root.mainloop()
