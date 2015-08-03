@@ -262,6 +262,7 @@ bool ActOnFileAdd(File_t *first, File_t *second)
 		File_t *exists = FileExists(first, f->path);
 		if (!exists)
 		{
+			fprintf(stderr, "add file %s\n", f->path);
 			printf("add file %s\n", f->path);
 			isChanged = true;
 		}	
@@ -572,7 +573,7 @@ int main(int argc, char **argv)
 	char *directory = argv[1];
 	
 	Prepare();
-
+	puts("starting");
 	MonitorPath(directory);
 
 	return EXIT_SUCCESS;

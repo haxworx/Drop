@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # help from richo healey at psych0tik.net
 # Clearly I don't use Python much!!!
 
@@ -27,13 +27,18 @@ class Application(Frame):
                     return
 
                 self.process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False)
-	
+
                 while True: #self.process.poll() is None:
                     output = self.process.stdout.readline()
+                    output = output.decode("utf-8")
                     if output == '':
                         break
-                    output = output.decode("utf-8")
+                    self.textbox.configure(state='normal')
                     self.textbox.insert(INSERT, output)
+                    self.textbox.configure(state='disabled')
+                    self.textbox.see(END)
+
+                self.process = None
 
         def worker(self, string):
                 self.active = True;
@@ -42,38 +47,42 @@ class Application(Frame):
                 t.start()
 
 
-        def start(self):
+        def start(self, *args):
                 cmd = self.entry.get()
                 if self.process:
-                    print("nooooooo")	
+                    print("nooooooo")
                 else:
+                    self.entry.delete(0, END)
                     self.worker(cmd)
 
         def stop(self):
                 #os.kill(self.process.pid, signal.SIGKILL)
-                self.process.terminate()
-                self.process = None
-                self.active = False;
+                if self.process:
+                        self.process.terminate()
+                        self.process = None
+                        self.active = False;
 
         def create_widgets(self):
                 # This stuff gives me nightmares...nevermind!
                 self.frame = Frame(self)
-                self.frame.grid()
+                self.frame.pack(expand=1, fill='both')
+                self.myParent.bind('<Return>', self.start)
                 #self.label = Label(self.frame, text = "Run").grid(row=0, column = 0)
-                self.entry = Entry(self.frame)
-                self.entry.grid(row=1, column = 0)
-                self.button = Button(self.frame, text = "Run", command = self.start).grid(row=2, column=0)
+                self.entry = Entry(self.frame, width=90)
+                self.entry.grid(row=0, column = 0, sticky=W)
+                #self.button = Button(self.frame, text = "Run", command = self.start).grid(row=0, sticky=W)
 
                 self.stop_button = Button(self.frame, text = "Stop", command = self.stop)
-                self.stop_button.grid(row=3, column = 0)
+                self.stop_button.grid(row=1, column=0, sticky=W)
 
-                self.textbox = Text(self.frame, width=400)
-                self.textbox.grid(row=5, column = 4,sticky=W+E+N+S)
+                self.textbox = Text(self.frame, width=80,  height=24)
+                self.textbox.grid(row=4, column = 0,sticky=W+E+N+S)
+                self.entry.focus_set()
 def main():
         root = Tk()
         root.title("I've got the Bogotron blues...")
-        root.geometry("500x400")
         app = Application(root)
+        root.resizable(0, 0)
         root.mainloop()
 
 if __name__ == "__main__":
