@@ -155,7 +155,6 @@ File_t * FilesInDirectory(const char *path)
 	d = opendir(path);
 	if (d == NULL)
 	{
-		printf("here %s %s\n", path, strerror(errno));
 		Error("opendir()");
 	}
 
@@ -262,7 +261,6 @@ bool ActOnFileAdd(File_t *first, File_t *second)
 		File_t *exists = FileExists(first, f->path);
 		if (!exists)
 		{
-			fprintf(stderr, "add file %s\n", f->path);
 			printf("add file %s\n", f->path);
 			isChanged = true;
 		}	
@@ -459,7 +457,6 @@ int ConfigValue(char *text, char *name, char *destination, ssize_t len)
 		*e = '\0';
 		char *value = strdup(i);
 		*e = '\n'; // don't break text
-		printf("value: %s\n", value);	
 		strlcpy(destination, value, len);  
 		
 		free(value);
@@ -570,10 +567,13 @@ int main(int argc, char **argv)
 		Usage();
 	}
 
+	// weird hack...
+	stdout = stderr;
+
 	char *directory = argv[1];
 	
 	Prepare();
-	puts("starting");
+
 	MonitorPath(directory);
 
 	return EXIT_SUCCESS;

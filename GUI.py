@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-# help from richo healey at psych0tik.net
-# Clearly I don't use Python much!!!
 
 from threading import Thread
 import subprocess
@@ -28,6 +26,8 @@ class Application(Frame):
 
                 self.process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False)
 
+                self.stop_button.configure(state='normal')
+
                 while True: #self.process.poll() is None:
                     output = self.process.stdout.readline()
                     output = output.decode("utf-8")
@@ -37,7 +37,7 @@ class Application(Frame):
                     self.textbox.insert(INSERT, output)
                     self.textbox.configure(state='disabled')
                     self.textbox.see(END)
-
+                self.stop_button.configure(state='disabled')	
                 self.process = None
 
         def worker(self, string):
@@ -61,6 +61,7 @@ class Application(Frame):
                         self.process.terminate()
                         self.process = None
                         self.active = False;
+                        self.stop_button.configure(state='disabled')
 
         def create_widgets(self):
                 # This stuff gives me nightmares...nevermind!
@@ -72,11 +73,10 @@ class Application(Frame):
                 self.entry.grid(row=0, column = 0, sticky=W)
                 #self.button = Button(self.frame, text = "Run", command = self.start).grid(row=0, sticky=W)
 
-                self.stop_button = Button(self.frame, text = "Stop", command = self.stop)
+                self.stop_button = Button(self.frame, text = "Terminate", command = self.stop)
                 self.stop_button.grid(row=1, column=0, sticky=W)
-
+                self.stop_button.configure(state='disabled')
                 self.textbox = Text(self.frame, width=80,  height=24)
-                self.textbox.configure(state='disabled')
                 self.textbox.grid(row=4, column = 0,sticky=W+E+N+S)
                 self.entry.focus_set()
 def main():
