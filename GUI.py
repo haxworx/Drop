@@ -76,6 +76,7 @@ class Application(Frame):
                 self.stop_button.grid(row=1, column=0, sticky=W)
 
                 self.textbox = Text(self.frame, width=80,  height=24)
+                self.textbox.configure(state='disabled')
                 self.textbox.grid(row=4, column = 0,sticky=W+E+N+S)
                 self.entry.focus_set()
 def main():
