@@ -22,19 +22,21 @@ class Application(Frame):
 
         def work(self, cmd):
                 if self.process:
-                    self.process.kill()
-                self.process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False)
-		
-                def update_textbox():
-                    self.line = self.process.stdout.readline()
-                    self.line = self.line.decode("utf-8")
-                    self.textbox.insert(END, self.line)
-                    self.myParent.after(0, update_textbox)
-                update_textbox()
+                    self.process.terminate() 
+                    self.active = False;
+                    return
 
+                self.process = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False)
+	
+                while True: #self.process.poll() is None:
+                    output = self.process.stdout.readline()
+                    if output == '':
+                        break
+                    output = output.decode("utf-8")
+                    self.textbox.insert(INSERT, output)
 
         def worker(self, string):
-                self.active = False;
+                self.active = True;
                 print("pressed the bum button\n")
                 t = Thread(target=self.work, args=(string,))
                 t.start()
@@ -42,11 +44,16 @@ class Application(Frame):
 
         def start(self):
                 cmd = self.entry.get()
-                self.worker(cmd)
+                if self.process:
+                    print("nooooooo")	
+                else:
+                    self.worker(cmd)
 
         def stop(self):
                 #os.kill(self.process.pid, signal.SIGKILL)
                 self.process.terminate()
+                self.process = None
+                self.active = False;
 
         def create_widgets(self):
                 # This stuff gives me nightmares...nevermind!
