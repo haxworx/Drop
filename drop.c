@@ -162,6 +162,64 @@ ssize_t Write(int sock, char *buf, int len)
     return write(sock, buf, len);
 }
 
+
+bool HTTP_Post_File_Remove(char *file)
+{
+    char path[PATH_MAX] = { 0 };
+    
+    snprintf(path, sizeof(path), "%s%c%s", directory, SLASH, file);
+    if (debugging)
+    {
+        printf("the path is %s\n", path);
+    }
+    
+    int sock = Connect(REMOTE_HOST, REMOTE_PORT);
+    if (! sock)
+    {
+        Error("Could not Connect()");
+    }
+    
+    int length = 0;
+    
+    char method[1024] = { 0 };
+    snprintf(method, sizeof(method), "POST %s HTTP/1.1\r\n", REMOTE_URI);
+    Write(sock, method, strlen(method));
+    
+    char host[1024] = { 0 };
+    snprintf(host, sizeof(host),"Host: %s\r\n", REMOTE_HOST);
+    Write(sock, host, strlen(host));
+    
+    char username[1024] = { 0 };
+    snprintf(username, sizeof(username), "Username: %s\r\n", user);
+    length += strlen(username);
+    
+    char password[1024] = { 0 };
+    snprintf(password, sizeof(password), "Password: %s\r\n", pass);
+    length += strlen(password);
+    
+    char *file_from_path = PathStrip(path);
+    char begin[1024] = { 0 };
+    snprintf(begin, sizeof(begin), "Filename: %s\r\n", file_from_path);
+    length += strlen(begin);
+    
+    char action[1024] = { 0 };
+    snprintf(action, sizeof(action), "Action: DEL\r\n\r\n");
+    length += strlen(action);
+    
+    char content_length[1024] = { 0 };
+    snprintf(content_length, sizeof(content_length), "Content-Length: %d\r\n", length);
+    
+    Write(sock, content_length, strlen(content_length));
+    Write(sock, username, strlen(username));
+    Write(sock, password, strlen(password));
+    Write(sock, begin, strlen(begin));
+    Write(sock, action, strlen(action));
+    
+    close(sock);
+    
+    return true;
+}
+
 bool HTTP_Post_File(char *file)
 {
     char path[PATH_MAX] = { 0 };
@@ -221,8 +279,12 @@ bool HTTP_Post_File(char *file)
     
     char *file_from_path = PathStrip(path);
     char begin[1024] = { 0 };
-    snprintf(begin, sizeof(begin), "Filename: %s\r\n\r\n", file_from_path);
+    snprintf(begin, sizeof(begin), "Filename: %s\r\n", file_from_path);
     length += strlen(begin);
+    
+    char action[1024] = { 0 };
+    snprintf(action, sizeof(action), "Action: ADD\r\n\r\n");
+    length += strlen(action);
     
     char content_length[1024] = { 0 };
     snprintf(content_length, sizeof(content_length), "Content-Length: %d\r\n", length);
@@ -231,6 +293,7 @@ bool HTTP_Post_File(char *file)
     Write(sock, username, strlen(username));
     Write(sock, password, strlen(password));
     Write(sock, begin, strlen(begin));
+    Write(sock, action, strlen(action));
     
     while (size)
     {
@@ -397,6 +460,8 @@ bool ActOnFileDel(File_t *first, File_t *second)
 		if (!exists)
 		{
 			printf("del file %s\n", f->path);
+            HTTP_Post_File_Remove(f->path);
+            printf("OK!\n");
 			isChanged = true;
 		}
 
