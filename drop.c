@@ -105,6 +105,13 @@ char *PathStrip(char *path)
         return t;
     }
     
+    t = strrchr(path, '/');
+    if (t) 
+    {
+	t++;
+    	return t;
+    }
+
     return path;
 }
 
