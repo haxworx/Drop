@@ -122,12 +122,15 @@ int Connect(char *hostname, int port)
 #define REMOTE_HOST "haxlab.org"
 #define REMOTE_PORT 80
 
-const char *user = "al";
-const char *pass = "pooo";
+const char *user = NULL;
+const char *pass = NULL;
 
 ssize_t Write(int sock, char *buf, int len)
 {
-    printf("%s", buf);
+    if (debugging)
+    {
+        printf("%s", buf);
+    }
     return write(sock, buf, len);
 }
 
@@ -173,15 +176,15 @@ bool HTTP_Post_File(char *path)
     int length = size;
     
     char username[1024] = { 0 };
-    snprintf(username, sizeof(username), "username: %s\r\n", user);
+    snprintf(username, sizeof(username), "Username: %s\r\n", user);
     length += strlen(username);
     
     char password[1024] = { 0 };
-    snprintf(password, sizeof(password), "password: %s\r\n", pass);
+    snprintf(password, sizeof(password), "Password: %s\r\n", pass);
     length += strlen(password);
     
     char begin[1024] = { 0 };
-    snprintf(begin, sizeof(begin), "filename: %s\r\n\r\n", path);
+    snprintf(begin, sizeof(begin), "Filename: %s\r\n\r\n", path);
     length += strlen(begin);
     
     char content_length[1024] = { 0 };
@@ -213,7 +216,7 @@ bool HTTP_Post_File(char *path)
     close(sock);
     fclose(f);
     
-    printf("http post done %s\n\n", path);
+    printf("OK!\n");
     
     return true;
 }
@@ -699,13 +702,13 @@ config_t *ConfigLoad(void)
 
 void Usage(void)
 {
-	Error("drop <DIRECTORY>");
+	Error("drop didn't start!"); // args = [ dir, user, pass ] 
 }
 // I think I'm going to blow my beans!
 
 int main(int argc, char **argv)
 {
-	if (argc != 2)
+	if (argc != 4)
 	{
 		Usage();
 	}
@@ -714,7 +717,9 @@ int main(int argc, char **argv)
 	stdout = stderr;
 
 	char *directory = argv[1];
-	
+	user = argv[2];
+    pass = argv[3];
+    
 	Prepare();
 
 	MonitorPath(directory);
