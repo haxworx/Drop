@@ -56,6 +56,12 @@ port it over for you later on."
 /* Let's do a HTTP POST to a web-server and retrieve a URL.
 */
 
+#ifndef WINDOWS
+#define SLASH '/'
+#else
+#define SLASH '\\'
+#endif
+
 #ifndef strlcpy
 size_t strlcpy(char *d, char const *s, size_t n)
 {
@@ -70,6 +76,11 @@ size_t strlcat(char *d, char const *s, size_t n)
 
 bool debugging = false;
 
+char *directory = NULL;
+const char *user = NULL;
+const char *pass = NULL;
+
+
 
 void Error(char *fmt, ...)
 {
@@ -82,6 +93,26 @@ void Error(char *fmt, ...)
         va_end(ap);
 
         exit(EXIT_FAILURE);
+}
+
+
+char *PathStrip(char *path)
+{
+    char *t = strrchr(path, '/');
+    if (t)
+    {
+        t++;
+        return t;
+    }
+    
+    t = strrchr(path, '\\');
+    if (t)
+    {
+        t++;
+        return t;
+    }
+    
+    return path;
 }
 
 int Connect(char *hostname, int port)
@@ -122,9 +153,6 @@ int Connect(char *hostname, int port)
 #define REMOTE_HOST "haxlab.org"
 #define REMOTE_PORT 80
 
-const char *user = NULL;
-const char *pass = NULL;
-
 ssize_t Write(int sock, char *buf, int len)
 {
     if (debugging)
@@ -134,8 +162,16 @@ ssize_t Write(int sock, char *buf, int len)
     return write(sock, buf, len);
 }
 
-bool HTTP_Post_File(char *path)
+bool HTTP_Post_File(char *file)
 {
+    char path[PATH_MAX] = { 0 };
+    
+    snprintf(path, sizeof(path), "%s%c%s", directory, SLASH, file);
+    if (debugging)
+    {
+        printf("the path is %s\n", path);
+    }
+    
     int sock = Connect(REMOTE_HOST, REMOTE_PORT);
     if (! sock)
     {
@@ -183,8 +219,9 @@ bool HTTP_Post_File(char *path)
     snprintf(password, sizeof(password), "Password: %s\r\n", pass);
     length += strlen(password);
     
+    char *file_from_path = PathStrip(path);
     char begin[1024] = { 0 };
-    snprintf(begin, sizeof(begin), "Filename: %s\r\n\r\n", path);
+    snprintf(begin, sizeof(begin), "Filename: %s\r\n\r\n", file_from_path);
     length += strlen(begin);
     
     char content_length[1024] = { 0 };
@@ -258,6 +295,7 @@ void FileListFree(File_t *list)
 	}
 }
 
+
 void FileListAdd(File_t *list, char *path, ssize_t size, unsigned int mode, unsigned int ctime)
 {
 	File_t *c = list;
@@ -277,18 +315,14 @@ void FileListAdd(File_t *list, char *path, ssize_t size, unsigned int mode, unsi
 		
 		c = c->next; c->next = NULL;
 
-		strlcpy(c->path, path, PATH_MAX);
+        char *p = PathStrip(path);
+        
+		strlcpy(c->path, p, PATH_MAX);
 		c->mode = mode;
 		c->size = size;
 		c->ctime = ctime;
 	}
 }
-
-#ifndef WINDOWS
-#define SLASH '/'
-#else
-#define SLASH '\\'
-#endif
 
 #include <errno.h>
 
@@ -385,7 +419,7 @@ bool ActOnFileMod(File_t *first, File_t *second)
 			if (c->size != exists->size)
 			{
 				printf("mod file %s\n", c->path);
-                HTTP_Post_File(c->path);
+                		HTTP_Post_File(c->path);
 				isChanged = true;
 			}
 		}
@@ -407,7 +441,7 @@ bool ActOnFileAdd(File_t *first, File_t *second)
 		if (!exists)
 		{
 			printf("add file %s\n", f->path);
-            HTTP_Post_File(f->path);
+            		HTTP_Post_File(f->path);
 			isChanged = true;
 		}	
 	
@@ -537,7 +571,21 @@ File_t *ListFromStateFile(const char *state_file_path)
 	return list;
 }
 
-File_t *FirstRun(const char *path)
+void WindowsSanifyPath(char *path)
+{
+    char *p = path;
+    
+    while (*p)
+    {
+        if (*p == '\\')
+        {
+            *p = '/';
+        }
+        p++;
+    }
+}
+
+File_t *FirstRun(char *path)
 {
 	char state_file_path[PATH_MAX] = { 0 };
 
@@ -554,6 +602,7 @@ File_t *FirstRun(const char *path)
 			printf("this is the first run\n");
 		}
 
+        WindowsSanifyPath(path);
 		list = FilesInDirectory(path);	
 	} 
 	else
@@ -568,7 +617,7 @@ File_t *FirstRun(const char *path)
 // time between scans of path in MonitorPath
 unsigned int changes_interval = 3;
 
-void MonitorPath(const char *path)
+void MonitorPath(char *path)
 {
 	File_t *file_list_one = FirstRun(path); // FilesInDirectory(path);	
 	printf("watching: %s\n", path);
@@ -716,7 +765,7 @@ int main(int argc, char **argv)
 	// weird hack...
 	stdout = stderr;
 
-	char *directory = argv[1];
+	directory = argv[1];
 	user = argv[2];
     pass = argv[3];
     
