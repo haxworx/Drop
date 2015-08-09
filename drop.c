@@ -122,6 +122,20 @@ int Connect(char *hostname, int port)
 #define REMOTE_HOST "haxlab.org"
 #define REMOTE_PORT 80
 
+const char *boundary = "--------------------56739374637362";
+
+void Content_Disposition(int sock, char *name, char *value, int len, char *filename)
+{
+    char content_disposition[1024] = { 0 };
+    char content[8192] = { 0 };
+    snprintf(content_disposition, sizeof(content_disposition), "Content-Disposition: form-data; name=\"%s\"\r\n\r\n", name);
+    snprintf(content, sizeof(content),  "%s\r\n%s\r\n", value, boundary);
+    printf(content_disposition);
+    write(sock, content_disposition, strlen(content_disposition));
+    write(sock, content, strlen(content));
+    printf(content);
+}
+
 bool HTTP_Post_File(char *path)
 {
     int sock = Connect(REMOTE_HOST, REMOTE_PORT);
@@ -161,8 +175,17 @@ bool HTTP_Post_File(char *path)
     write(sock, method, strlen(method));
     write(sock, host, strlen(host));
     
+    char content_type[1024] = { 0 };
+    snprintf(content_type, sizeof(content_type), "Content-Type: application/form-data; boundary=%s\r\n", boundary);
+    
+    write(sock, content_type, strlen(content_type));
+    
     char content_length[1024] = { 0 };
-    snprintf(content_length, size, "Content-Length: %d\r\n\r\n", size);
+    snprintf(content_length, sizeof(content_length), "Content-Length: %d\r\n\r\n", size);
+    
+    Content_Disposition(sock, "username", "aldo", 0, NULL);
+    
+    write(sock, content_length, strlen(content_length));
     
     while (size)
     {
@@ -183,6 +206,9 @@ bool HTTP_Post_File(char *path)
     }
     
     close(sock);
+    fclose(f);
+    
+    printf("http post done %s\n\n", path);
     
     return true;
 }
@@ -392,7 +418,7 @@ void SaveFileState(File_t *list)
 {
 	char state_file_path[PATH_MAX] = { 0 };
 
-        snprintf(state_file_path, PATH_MAX, "%s%c%s", DROP_CONFIG_DIRECTORY, SLASH, DROP_STATE_FILE);
+    snprintf(state_file_path, PATH_MAX, "%s%c%s", DROP_CONFIG_DIRECTORY, SLASH, DROP_STATE_FILE);
 
 	FILE *f = fopen(state_file_path, "w");
 	if (f == NULL)
