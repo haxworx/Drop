@@ -98,14 +98,7 @@ void Error(char *fmt, ...)
 
 char *PathStrip(char *path)
 {
-    char *t = strrchr(path, '/');
-    if (t)
-    {
-        t++;
-        return t;
-    }
-    
-    t = strrchr(path, '\\');
+    char *t = strrchr(path, '\\');
     if (t)
     {
         t++;
