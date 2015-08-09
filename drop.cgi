@@ -39,8 +39,9 @@ sub get_file {
 	my $username = $cgi->http('Username');
 	my $password = $cgi->http('Password');
 	my $filename = $cgi->http('Filename');
+	my $action = $cgi->http('Action');
 
-	if (! defined $username || ! defined $password || ! defined $filename)
+	if (!defined $action || ! defined $username || ! defined $password || ! defined $filename)
 	{
 		Error(0x0003);
 	}
@@ -50,10 +51,13 @@ sub get_file {
                 our $SLASH = '/';
 
                 my $path = $username . $SLASH . $filename;
+		if ($action eq "ADD") {
 		open (FH, "> $path") or die "$!";
 		print FH $data;
 		close FH;
-
+		} elsif ($action eq "DEL") {
+			unlink($path);
+		}
 		print "Content-type: text/plain\r\n\r\n";
 		print "STATUS: 0x0001\r\n";
 	} else {
