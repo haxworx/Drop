@@ -12,50 +12,30 @@ sub browser_message {
 	exit;
 }
 
-sub cgi_new {
-if (($ENV{REQUEST_METHOD}||"") eq "POST") {
-        my $post = $ENV{REQUEST_BODY_1};
-        if (!defined $post) { $post = ""; }
-        my $len = $ENV{CONTENT_LENGTH};
-        if (defined $len && ($len -= length($post)) >= 0) {
-                read(STDIN, $post, $len, length($post));
-        } else {
-                $post .= join "", <STDIN>;
-        }
-        return CGI->new($post);
-} else {
-        return CGI->new();
-}
-}
+sub get_file {
+	if ($ENV{REQUEST_METHOD} eq "POST") {
+		my $len = $ENV{CONTENT_LENGTH};
 
-use CGI qw/:standard/;
+		if (! defined $len) {
+			browser_message("nopey");
+		}
 
-my $query = cgi_new();
+		my $data = "";
 
-my $username = $query->param("username");
-my $password = $query->param("password");
- 
-my $filename = $query->param("filename");
+		read(STDIN, $data, $len);
 
-my $fh = $query->upload("filename");
-my $data =""; 
+		open(FH, "> example.txt") or die "$!";
+		print FH $data;
+		close FH;			
 
-open (FH, "> example.txt") or die "$!";
-binmode FH;
 
-print FH "$username and $password\n";
-if (!defined $fh) {
-	browser_message("nooo");	
-}	
-
-while (<$fh>) {
-	$data .= $_;
+		print "Content-type: text/plain\r\n\r\n";
+		print "STATUS: 0x0001\r\n";
+	} else {
+		browser_message("nope");
+	}
 }
 
-print FH $data;
-close FH;
-
-print "Content-type: text/plain\r\n\r\n";
-print "STATUS: 0x0001\r\n";
+get_file();
 
 exit 0;
