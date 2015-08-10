@@ -178,43 +178,26 @@ bool HTTP_Post_File_Remove(char *file)
     {
         Error("Could not Connect()");
     }
-    
-    int length = 0;
-    
-    char method[1024] = { 0 };
-    snprintf(method, sizeof(method), "POST %s HTTP/1.1\r\n", REMOTE_URI);
-    Write(sock, method, strlen(method));
-    
-    char host[1024] = { 0 };
-    snprintf(host, sizeof(host),"Host: %s\r\n", REMOTE_HOST);
-    Write(sock, host, strlen(host));
-    
-    char username[1024] = { 0 };
-    snprintf(username, sizeof(username), "Username: %s\r\n", user);
-    length += strlen(username);
-    
-    char password[1024] = { 0 };
-    snprintf(password, sizeof(password), "Password: %s\r\n", pass);
-    length += strlen(password);
-    
+   
+    int content_length = 0; 
     char *file_from_path = PathStrip(path);
-    char begin[1024] = { 0 };
-    snprintf(begin, sizeof(begin), "Filename: %s\r\n", file_from_path);
-    length += strlen(begin);
-    
-    char action[1024] = { 0 };
-    snprintf(action, sizeof(action), "Action: DEL\r\n\r\n");
-    length += strlen(action);
-    
-    char content_length[1024] = { 0 };
-    snprintf(content_length, sizeof(content_length), "Content-Length: %d\r\n", length);
-    
-    Write(sock, content_length, strlen(content_length));
-    Write(sock, username, strlen(username));
-    Write(sock, password, strlen(password));
-    Write(sock, begin, strlen(begin));
-    Write(sock, action, strlen(action));
-    
+
+    char post[8192] = { 0 };
+    char *fmt = 
+    	"POST %s HTTP/1.1\r\n" 	\
+    	"Host: %s\r\n" 		\
+    	"Content-Length: %d\r\n"\
+    	"Username: %s\r\n"	\
+    	"Password: %s\r\n"	\
+    	"Filename: %s\r\n"	\
+    	"Action: DEL\r\n\r\n"
+    ;
+
+    snprintf(post, sizeof(post), fmt, REMOTE_URI, REMOTE_HOST,
+	content_length, user, pass, file_from_path);
+
+    Write(sock, post, strlen(post));   
+ 
     close(sock);
     
     return true;
@@ -256,45 +239,30 @@ bool HTTP_Post_File(char *file)
 
     char buffer[CHUNK + 1] = { 0 };
     
-    int size = fstats.st_size;
-    int total = 0;
-    
-    char method[1024] = { 0 };
-    snprintf(method, sizeof(method), "POST %s HTTP/1.1\r\n", REMOTE_URI);
-    Write(sock, method, strlen(method));
-    
-    char host[1024] = { 0 };
-    snprintf(host, sizeof(host),"Host: %s\r\n", REMOTE_HOST);
-    Write(sock, host, strlen(host));
-    
-    int length = size;
-    
-    char username[1024] = { 0 };
-    snprintf(username, sizeof(username), "Username: %s\r\n", user);
-    length += strlen(username);
-    
-    char password[1024] = { 0 };
-    snprintf(password, sizeof(password), "Password: %s\r\n", pass);
-    length += strlen(password);
-    
+    int content_length = fstats.st_size;
+
     char *file_from_path = PathStrip(path);
-    char begin[1024] = { 0 };
-    snprintf(begin, sizeof(begin), "Filename: %s\r\n", file_from_path);
-    length += strlen(begin);
     
-    char action[1024] = { 0 };
-    snprintf(action, sizeof(action), "Action: ADD\r\n\r\n");
-    length += strlen(action);
+    char post[8192] = { 0 };
+    char *fmt = 
+        "POST %s HTTP/1.1\r\n"
+        "Host: %s\r\n"
+        "Content-Length: %d\r\n"
+        "Username: %s\r\n"
+        "Password: %s\r\n"
+        "Filename: %s\r\n"
+        "Action: ADD\r\n\r\n"
+    ;   
     
-    char content_length[1024] = { 0 };
-    snprintf(content_length, sizeof(content_length), "Content-Length: %d\r\n", length);
-    
-    Write(sock, content_length, strlen(content_length));
-    Write(sock, username, strlen(username));
-    Write(sock, password, strlen(password));
-    Write(sock, begin, strlen(begin));
-    Write(sock, action, strlen(action));
-    
+    snprintf(post, sizeof(post), fmt, REMOTE_URI, REMOTE_HOST,
+        content_length, user, pass, file_from_path);
+        
+    Write(sock, post, strlen(post));
+   
+    int total = 0;
+
+    int size = content_length;
+ 
     while (size)
     {
         while (1)
