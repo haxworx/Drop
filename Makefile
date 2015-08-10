@@ -1,12 +1,16 @@
 SOURCE=drop.c
 INSTALL_DIR=/usr/local/bin
-CFLAGS=-std=c99 -Wall -Werror -pedantic -static
+CFLAGS=-std=c99 -Wall -Werror -pedantic 
 EXEC=drop
-OPTIONS=-DWINDOWS
+OPTIONS=
 HAIKU=-lnetwork
+WINDOWS=-DWINDOWS -static
 
 default:
 	gcc $(CFLAGS) $(OPTIONS) $(SOURCE) -o $(EXEC)
+
+windows:
+	gcc $(CFLAGS) $(OPTIONS) $(WINDOWS) $(SOURCE) -o $(EXEC)
 
 haiku: 
 	gcc $(CFLAGS) $(OPTIONS) $(HAIKU) $(SOURCE) -o $(EXEC)

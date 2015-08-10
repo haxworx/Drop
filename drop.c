@@ -24,7 +24,11 @@
 
  */
 
-#define _XOPEN_SOURCE 99999
+/* Thanks to Sam Watkin, Jason Pierce and Chris Rahm for being good friends
+   over the years!
+*/
+
+#define _BSD_SOURCE 0x00000001
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -224,6 +228,7 @@ bool HTTP_Post_File(char *file)
 		Error("Unable to open filename %s, this should not happen!",
 		      path);
 	}
+
 #define CHUNK 1024
 
 	char buffer[CHUNK + 1] = { 0 };
