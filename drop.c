@@ -281,7 +281,7 @@ struct File_t
 	char path[PATH_MAX];
 	unsigned int mode;
 	ssize_t size;
-	unsigned int ctime;
+	unsigned int mtime;
 	File_t *next;
 };
 
@@ -316,7 +316,7 @@ void FileListFree(File_t * list)
 
 
 void FileListAdd(File_t * list, char *path, ssize_t size, unsigned int mode,
-		 unsigned int ctime)
+		 unsigned int mtime)
 {
 	File_t *c = list;
 
@@ -341,7 +341,7 @@ void FileListAdd(File_t * list, char *path, ssize_t size, unsigned int mode,
 		strlcpy(c->path, p, PATH_MAX);
 		c->mode = mode;
 		c->size = size;
-		c->ctime = ctime;
+		c->mtime = mtime;
 	}
 }
 
@@ -384,7 +384,7 @@ File_t *FilesInDirectory(const char *path)
 		else
 		{
 			FileListAdd(list, path_full, fs.st_size, fs.st_mode,
-				    fs.st_ctime);
+				    fs.st_mtime);
 		}
 	}
 
@@ -441,7 +441,7 @@ bool ActOnFileMod(File_t * first, File_t * second)
 		File_t *exists = FileExists(first, c->path);
 		if (exists)
 		{
-			if (c->size != exists->size)
+			if (c->mtime != exists->mtime)
 			{
 				printf("mod file %s\n", c->path);
 				HTTP_Post_File(c->path);
@@ -500,7 +500,7 @@ void SaveFileState(File_t * list)
 		// we could refactor this...just include stat struct rather
 		// than individual members...ahhh...f*ck it!
 		fprintf(f, STATE_FILE_FORMAT, c->path, (unsigned int)c->size,
-			(unsigned int)c->mode, (unsigned int)c->ctime);
+			(unsigned int)c->mode, (unsigned int)c->mtime);
 		fprintf(f, "\n");
 
 		c = c->next;
