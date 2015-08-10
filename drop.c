@@ -1,37 +1,29 @@
-/*
-Copyright (c) 2015, Al Poole <netstar@gmail.com>
-All rights reserved.
+/* 
+   Copyright (c) 2015, Al Poole <netstar@gmail.com> All rights reserved.
 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are met:
 
-1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
+   1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer. 2. Redistributions in 
+   binary form must reproduce the above copyright notice, this list of
+   conditions and the following disclaimer in the documentation and/or other
+   materials provided with the distribution.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" 
+   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+   LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+   CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+   SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+   INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+   POSSIBILITY OF SUCH DAMAGE.
 
-*/
+ */
 
-/*
-Lord Bogotron says,
-
-"This maniac uses OpenBSD for development. OpenBSD provides additional string
-manipulation functions not offered by the standard C library. I'm sure we'll
-port it over for you later on."
-
-*/
 #define _XOPEN_SOURCE 99999
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,8 +45,7 @@ port it over for you later on."
 #endif
 
 #define h_addr h_addr_list[0]
-/* Let's do a HTTP POST to a web-server and retrieve a URL.
-*/
+/* Let's do a HTTP POST to a web-server and retrieve a URL. */
 
 #ifndef WINDOWS
 #define SLASH '/'
@@ -65,12 +56,12 @@ port it over for you later on."
 #ifndef strlcpy
 size_t strlcpy(char *d, char const *s, size_t n)
 {
-    return snprintf(d, n, "%s", s);
+	return snprintf(d, n, "%s", s);
 }
 
 size_t strlcat(char *d, char const *s, size_t n)
 {
-    return snprintf(d, n, "%s%s", d, s);
+	return snprintf(d, n, "%s%s", d, s);
 }
 #endif
 
@@ -84,69 +75,69 @@ const char *pass = NULL;
 
 void Error(char *fmt, ...)
 {
-        char message[8192] = { 0 };
-        va_list ap;
+	char message[8192] = { 0 };
+	va_list ap;
 
-        va_start(ap, fmt);
-        vsnprintf(message, 8192, fmt, ap);
-        fprintf(stderr, "Error: %s\n", message);
-        va_end(ap);
+	va_start(ap, fmt);
+	vsnprintf(message, 8192, fmt, ap);
+	fprintf(stderr, "Error: %s\n", message);
+	va_end(ap);
 
-        exit(EXIT_FAILURE);
+	exit(EXIT_FAILURE);
 }
 
 
 char *PathStrip(char *path)
 {
-    char *t = strrchr(path, '\\');
-    if (t)
-    {
-        t++;
-        return t;
-    }
-    
-    t = strrchr(path, '/');
-    if (t) 
-    {
-	t++;
-    	return t;
-    }
+	char *t = strrchr(path, '\\');
+	if (t)
+	{
+		t++;
+		return t;
+	}
 
-    return path;
+	t = strrchr(path, '/');
+	if (t)
+	{
+		t++;
+		return t;
+	}
+
+	return path;
 }
 
 int Connect(char *hostname, int port)
 {
-    int sock;
-    struct hostent *host;
-    struct sockaddr_in host_addr;
-    
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0)
-    {
-            Error("socket()");
-    }
-    
-    host = gethostbyname(hostname);
-    if (host == NULL)
-    {
-        Error("gethostbyname()");
-    }
-    
-    host_addr.sin_family = AF_INET;
-    host_addr.sin_port = htons(port);
-    host_addr.sin_addr = *((struct in_addr *) host->h_addr);
-    memset(&host_addr.sin_zero, 0, 8);
-    
-    int status = connect(sock, (struct sockaddr *) &host_addr,
-                    sizeof(struct sockaddr));
-                    
-    if (status == 0)
-    {
-        return sock;
-    }
-    
-    return 0;
+	int sock;
+	struct hostent *host;
+	struct sockaddr_in host_addr;
+
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock < 0)
+	{
+		Error("socket()");
+	}
+
+	host = gethostbyname(hostname);
+	if (host == NULL)
+	{
+		Error("gethostbyname()");
+	}
+
+	host_addr.sin_family = AF_INET;
+	host_addr.sin_port = htons(port);
+	host_addr.sin_addr = *((struct in_addr *)host->h_addr);
+	memset(&host_addr.sin_zero, 0, 8);
+
+	int status = connect(sock, (struct sockaddr *)&host_addr,
+			     sizeof(struct sockaddr));
+
+	if (status == 0)
+	{
+		return sock;
+	}
+
+	return 0;
 }
 
 #define REMOTE_URI "/drop.cgi"
@@ -155,141 +146,138 @@ int Connect(char *hostname, int port)
 
 ssize_t Write(int sock, char *buf, int len)
 {
-    if (debugging)
-    {
-        printf("%s", buf);
-    }
-    return write(sock, buf, len);
+	if (debugging)
+	{
+		printf("%s", buf);
+	}
+	return write(sock, buf, len);
 }
 
 
 bool HTTP_Post_File_Remove(char *file)
 {
-    char path[PATH_MAX] = { 0 };
-    
-    snprintf(path, sizeof(path), "%s%c%s", directory, SLASH, file);
-    if (debugging)
-    {
-        printf("the path is %s\n", path);
-    }
-    
-    int sock = Connect(REMOTE_HOST, REMOTE_PORT);
-    if (! sock)
-    {
-        Error("Could not Connect()");
-    }
-   
-    int content_length = 0; 
-    char *file_from_path = PathStrip(path);
+	char path[PATH_MAX] = { 0 };
 
-    char post[8192] = { 0 };
-    char *fmt = 
-    	"POST %s HTTP/1.1\r\n" 	\
-    	"Host: %s\r\n" 		\
-    	"Content-Length: %d\r\n"\
-    	"Username: %s\r\n"	\
-    	"Password: %s\r\n"	\
-    	"Filename: %s\r\n"	\
-    	"Action: DEL\r\n\r\n"
-    ;
+	snprintf(path, sizeof(path), "%s%c%s", directory, SLASH, file);
+	if (debugging)
+	{
+		printf("the path is %s\n", path);
+	}
 
-    snprintf(post, sizeof(post), fmt, REMOTE_URI, REMOTE_HOST,
-	content_length, user, pass, file_from_path);
+	int sock = Connect(REMOTE_HOST, REMOTE_PORT);
+	if (!sock)
+	{
+		Error("Could not Connect()");
+	}
 
-    Write(sock, post, strlen(post));   
- 
-    close(sock);
-    
-    return true;
+	int content_length = 0;
+	char *file_from_path = PathStrip(path);
+
+	char post[8192] = { 0 };
+	char *fmt =
+		"POST %s HTTP/1.1\r\n"
+		"Host: %s\r\n"
+		"Content-Length: %d\r\n"
+		"Username: %s\r\n"
+		"Password: %s\r\n" "Filename: %s\r\n" "Action: DEL\r\n\r\n";
+
+	snprintf(post, sizeof(post), fmt, REMOTE_URI, REMOTE_HOST,
+		 content_length, user, pass, file_from_path);
+
+	Write(sock, post, strlen(post));
+
+	close(sock);
+
+	return true;
 }
 
 bool HTTP_Post_File(char *file)
 {
-    char path[PATH_MAX] = { 0 };
-    
-    snprintf(path, sizeof(path), "%s%c%s", directory, SLASH, file);
-    if (debugging)
-    {
-        printf("the path is %s\n", path);
-    }
-    
-    int sock = Connect(REMOTE_HOST, REMOTE_PORT);
-    if (! sock)
-    {
-        Error("Could not Connect()");
-    }
-    
-    struct stat fstats;
-    if (strlen(path) == 0)
-    {
-        return false;
-    }
-    
-    if (stat(path, &fstats) < 0)
-    {
-        return false;
-    }
-    
-    FILE *f = fopen(path, "rb");
-    if (f == NULL)
-    {
-        Error("Unable to open filename %s, this should not happen!", path);
-    }
+	char path[PATH_MAX] = { 0 };
+
+	snprintf(path, sizeof(path), "%s%c%s", directory, SLASH, file);
+	if (debugging)
+	{
+		printf("the path is %s\n", path);
+	}
+
+	int sock = Connect(REMOTE_HOST, REMOTE_PORT);
+	if (!sock)
+	{
+		Error("Could not Connect()");
+	}
+
+	struct stat fstats;
+	if (strlen(path) == 0)
+	{
+		return false;
+	}
+
+	if (stat(path, &fstats) < 0)
+	{
+		return false;
+	}
+
+	FILE *f = fopen(path, "rb");
+	if (f == NULL)
+	{
+		Error("Unable to open filename %s, this should not happen!",
+		      path);
+	}
 #define CHUNK 1024
 
-    char buffer[CHUNK + 1] = { 0 };
-    
-    int content_length = fstats.st_size;
+	char buffer[CHUNK + 1] = { 0 };
 
-    char *file_from_path = PathStrip(path);
-    
-    char post[8192] = { 0 };
-    char *fmt = 
-        "POST %s HTTP/1.1\r\n"
-        "Host: %s\r\n"
-        "Content-Length: %d\r\n"
-        "Username: %s\r\n"
-        "Password: %s\r\n"
-        "Filename: %s\r\n"
-        "Action: ADD\r\n\r\n"
-    ;   
-    
-    snprintf(post, sizeof(post), fmt, REMOTE_URI, REMOTE_HOST,
-        content_length, user, pass, file_from_path);
-        
-    Write(sock, post, strlen(post));
-   
-    int total = 0;
+	int content_length = fstats.st_size;
 
-    int size = content_length;
- 
-    while (size)
-    {
-        while (1)
-        {
-            int count = fread(buffer, 1, CHUNK, f);
-            int bytes = write(sock, buffer, count);
-            if (bytes == 0)
-            {
-                break;
-            }
-            else
-            {
-                size -= bytes;
-                total += bytes;
-            }
-        }
-    }
-    
-    close(sock);
-    fclose(f);
-    
-    printf("OK!\n");
-    
-    return true;
+	char *file_from_path = PathStrip(path);
+
+	char post[8192] = { 0 };
+	char *fmt =
+		"POST %s HTTP/1.1\r\n"
+		"Host: %s\r\n"
+		"Content-Length: %d\r\n"
+		"Username: %s\r\n"
+		"Password: %s\r\n" "Filename: %s\r\n" "Action: ADD\r\n\r\n";
+
+	snprintf(post, sizeof(post), fmt, REMOTE_URI, REMOTE_HOST,
+		 content_length, user, pass, file_from_path);
+
+	Write(sock, post, strlen(post));
+
+	int total = 0;
+
+	int size = content_length;
+
+	while (size)
+	{
+		while (1)
+		{
+			int count = fread(buffer, 1, CHUNK, f);
+			int bytes = write(sock, buffer, count);
+			if (bytes == 0)
+			{
+				break;
+			}
+			else
+			{
+				size -= bytes;
+				total += bytes;
+			}
+		}
+	}
+
+	close(sock);
+	fclose(f);
+
+	printf("OK!\n");
+
+	return true;
 }
+
 typedef struct File_t File_t;
-struct File_t {
+struct File_t
+{
 	char path[PATH_MAX];
 	unsigned int mode;
 	ssize_t size;
@@ -300,26 +288,26 @@ struct File_t {
 // haircut anyone???
 void Trim(char *string)
 {
-        char *s = string;
+	char *s = string;
 
-        while (*s)
-        {
-                if (*s == '\r' || *s == '\n')
-                {
-                        *s = '\0';
-                        return;
-                }
-                s++;
-        }
+	while (*s)
+	{
+		if (*s == '\r' || *s == '\n')
+		{
+			*s = '\0';
+			return;
+		}
+		s++;
+	}
 }
 
-void FileListFree(File_t *list)
+void FileListFree(File_t * list)
 {
 	File_t *c = list;
 
-	while (c)	
+	while (c)
 	{
-		File_t *next = c->next;	
+		File_t *next = c->next;
 		free(c);
 
 		c = next;
@@ -327,10 +315,11 @@ void FileListFree(File_t *list)
 }
 
 
-void FileListAdd(File_t *list, char *path, ssize_t size, unsigned int mode, unsigned int ctime)
+void FileListAdd(File_t * list, char *path, ssize_t size, unsigned int mode,
+		 unsigned int ctime)
 {
 	File_t *c = list;
-	
+
 	while (c->next)
 	{
 		c = c->next;
@@ -343,11 +332,12 @@ void FileListAdd(File_t *list, char *path, ssize_t size, unsigned int mode, unsi
 		{
 			Error("calloc()");
 		}
-		
-		c = c->next; c->next = NULL;
 
-        char *p = PathStrip(path);
-        
+		c = c->next;
+		c->next = NULL;
+
+		char *p = PathStrip(path);
+
 		strlcpy(c->path, p, PATH_MAX);
 		c->mode = mode;
 		c->size = size;
@@ -357,7 +347,7 @@ void FileListAdd(File_t *list, char *path, ssize_t size, unsigned int mode, unsi
 
 #include <errno.h>
 
-File_t * FilesInDirectory(const char *path)
+File_t *FilesInDirectory(const char *path)
 {
 	DIR *d = NULL;
 	struct dirent *dirent = NULL;
@@ -375,33 +365,35 @@ File_t * FilesInDirectory(const char *path)
 
 	while ((dirent = readdir(d)) != NULL)
 	{
-		if (! strncmp(dirent->d_name, ".", 1))
+		if (!strncmp(dirent->d_name, ".", 1))
 		{
 			continue;
 		}
-		
+
 		char path_full[PATH_MAX] = { 0 };
-		snprintf(path_full, PATH_MAX, "%s%c%s", path, SLASH, dirent->d_name);
+		snprintf(path_full, PATH_MAX, "%s%c%s", path, SLASH,
+			 dirent->d_name);
 
 		struct stat fs;
 		stat(path_full, &fs);
-		
+
 		if (S_ISDIR(fs.st_mode))
 		{
 			continue;
 		}
 		else
 		{
-			FileListAdd(list, path_full, fs.st_size, fs.st_mode, fs.st_ctime);
+			FileListAdd(list, path_full, fs.st_size, fs.st_mode,
+				    fs.st_ctime);
 		}
 	}
-	
+
 	closedir(d);
 
 	return list;
 }
 
-File_t * FileExists(File_t *list, char *filename)
+File_t *FileExists(File_t * list, char *filename)
 {
 	File_t *f = list;
 
@@ -417,9 +409,9 @@ File_t * FileExists(File_t *list, char *filename)
 	return NULL;
 }
 
-bool ActOnFileDel(File_t *first, File_t *second)
+bool ActOnFileDel(File_t * first, File_t * second)
 {
-	File_t *f = first; 
+	File_t *f = first;
 	bool isChanged = false;
 
 	while (f)
@@ -428,18 +420,18 @@ bool ActOnFileDel(File_t *first, File_t *second)
 		if (!exists)
 		{
 			printf("del file %s\n", f->path);
-            HTTP_Post_File_Remove(f->path);
-            printf("OK!\n");
+			HTTP_Post_File_Remove(f->path);
+			printf("OK!\n");
 			isChanged = true;
 		}
 
-		f = f->next;	
+		f = f->next;
 	}
 
 	return isChanged;
 }
 
-bool ActOnFileMod(File_t *first, File_t *second)
+bool ActOnFileMod(File_t * first, File_t * second)
 {
 	File_t *c = second;
 	bool isChanged = false;
@@ -452,32 +444,32 @@ bool ActOnFileMod(File_t *first, File_t *second)
 			if (c->size != exists->size)
 			{
 				printf("mod file %s\n", c->path);
-                		HTTP_Post_File(c->path);
+				HTTP_Post_File(c->path);
 				isChanged = true;
 			}
 		}
 
-		c = c->next;	
+		c = c->next;
 	}
 
 	return isChanged;
 }
 
-bool ActOnFileAdd(File_t *first, File_t *second)
+bool ActOnFileAdd(File_t * first, File_t * second)
 {
 	File_t *f = second;
 	bool isChanged = false;
-	
+
 	while (f)
 	{
 		File_t *exists = FileExists(first, f->path);
 		if (!exists)
 		{
 			printf("add file %s\n", f->path);
-            		HTTP_Post_File(f->path);
+			HTTP_Post_File(f->path);
 			isChanged = true;
-		}	
-	
+		}
+
 		f = f->next;
 	}
 
@@ -489,11 +481,12 @@ bool ActOnFileAdd(File_t *first, File_t *second)
 #define DROP_CONFIG_FILE "drop.cfg"
 #define DROP_STATE_FILE "state"
 
-void SaveFileState(File_t *list)
+void SaveFileState(File_t * list)
 {
 	char state_file_path[PATH_MAX] = { 0 };
 
-    snprintf(state_file_path, PATH_MAX, "%s%c%s", DROP_CONFIG_DIRECTORY, SLASH, DROP_STATE_FILE);
+	snprintf(state_file_path, PATH_MAX, "%s%c%s", DROP_CONFIG_DIRECTORY,
+		 SLASH, DROP_STATE_FILE);
 
 	FILE *f = fopen(state_file_path, "w");
 	if (f == NULL)
@@ -504,8 +497,10 @@ void SaveFileState(File_t *list)
 	File_t *c = list->next;
 	while (c)
 	{
-		// we could refactor this...just include stat struct rather than individual members...ahhh...f*ck it!
-		fprintf(f, STATE_FILE_FORMAT, c->path, (unsigned int) c->size, (unsigned int)c->mode, (unsigned int) c->ctime);  
+		// we could refactor this...just include stat struct rather
+		// than individual members...ahhh...f*ck it!
+		fprintf(f, STATE_FILE_FORMAT, c->path, (unsigned int)c->size,
+			(unsigned int)c->mode, (unsigned int)c->ctime);
 		fprintf(f, "\n");
 
 		c = c->next;
@@ -517,16 +512,17 @@ void SaveFileState(File_t *list)
 #define COMMAND_MAX 2048
 
 typedef struct config_t config_t;
-struct config_t {
+struct config_t
+{
 	char directory[PATH_MAX];
 	char remote_directory[PATH_MAX];
 	char ssh_string[COMMAND_MAX];
 };
 
-void CompareFileLists(File_t *first, File_t *second)
+void CompareFileLists(File_t * first, File_t * second)
 {
 	bool store_state = false;
-	bool modifications = false;	
+	bool modifications = false;
 
 	modifications = ActOnFileAdd(first, second);
 	if (modifications)
@@ -537,7 +533,7 @@ void CompareFileLists(File_t *first, File_t *second)
 	modifications = ActOnFileDel(first, second);
 	if (modifications)
 	{
-		store_state = true;	
+		store_state = true;
 	}
 
 	modifications = ActOnFileMod(first, second);
@@ -563,7 +559,7 @@ void Prepare(void)
 		mkdir(DROP_CONFIG_DIRECTORY, 0777);
 	}
 
-	if (! S_ISDIR(fstats.st_mode))
+	if (!S_ISDIR(fstats.st_mode))
 	{
 		Error("%s is not a directory", DROP_CONFIG_DIRECTORY);
 	}
@@ -588,14 +584,14 @@ File_t *ListFromStateFile(const char *state_file_path)
 	}
 
 	char line[1024] = { 0 };
-	while((fgets(line, sizeof(line), f)) != NULL) 
+	while ((fgets(line, sizeof(line), f)) != NULL)
 	{
 		Trim(line);
 		int result = sscanf(line, STATE_FILE_FORMAT, path, &s, &m, &t);
 		if (result == 4)
 		{
 			FileListAdd(list, path, s, m, t);
-		}				
+		}
 		memset(line, 0, sizeof(line));
 	}
 
@@ -606,28 +602,29 @@ File_t *ListFromStateFile(const char *state_file_path)
 
 void WindowsSanifyPath(char *path)
 {
-    char *p = path;
-    
-    while (*p)
-    {
-        if (*p == '\\')
-        {
-            *p = '/';
-        }
-        p++;
-    }
+	char *p = path;
+
+	while (*p)
+	{
+		if (*p == '\\')
+		{
+			*p = '/';
+		}
+		p++;
+	}
 }
 
 File_t *FirstRun(char *path)
 {
 	char state_file_path[PATH_MAX] = { 0 };
 
-	snprintf(state_file_path, PATH_MAX, "%s%c%s", DROP_CONFIG_DIRECTORY, SLASH, DROP_STATE_FILE);
+	snprintf(state_file_path, PATH_MAX, "%s%c%s", DROP_CONFIG_DIRECTORY,
+		 SLASH, DROP_STATE_FILE);
 
 	struct stat fstats;
-	
+
 	File_t *list = NULL;
-	
+
 	if (stat(state_file_path, &fstats) < 0)
 	{
 		if (debugging)
@@ -635,15 +632,15 @@ File_t *FirstRun(char *path)
 			printf("this is the first run\n");
 		}
 
-        WindowsSanifyPath(path);
-		list = FilesInDirectory(path);	
-	} 
+		WindowsSanifyPath(path);
+		list = FilesInDirectory(path);
+	}
 	else
 	{
 		list = ListFromStateFile(state_file_path);
 	}
 
-	
+
 	return list;
 }
 
@@ -652,7 +649,7 @@ unsigned int changes_interval = 3;
 
 void MonitorPath(char *path)
 {
-	File_t *file_list_one = FirstRun(path); // FilesInDirectory(path);	
+	File_t *file_list_one = FirstRun(path);	// FilesInDirectory(path); 
 	printf("watching: %s\n", path);
 
 	for (;;)
@@ -667,8 +664,8 @@ void MonitorPath(char *path)
 		File_t *file_list_two = FilesInDirectory(path);
 
 		CompareFileLists(file_list_one, file_list_two);
-		
-		FileListFree(file_list_one);	
+
+		FileListFree(file_list_one);
 		file_list_one = file_list_two;
 	}
 }
@@ -680,15 +677,15 @@ int ConfigValue(char *text, char *name, char *destination, ssize_t len)
 	i = strstr(text, name);
 	if (i)
 	{
-		i += strlen(name) + 1; 
+		i += strlen(name) + 1;
 		char *e = strchr(i, '\n');
 		*e = '\0';
 		char *value = strdup(i);
-		*e = '\n'; // don't break text
-		strlcpy(destination, value, len);  
-		
+		*e = '\n';	// don't break text
+		strlcpy(destination, value, len);
+
 		free(value);
-	
+
 		return 1;
 	}
 
@@ -713,7 +710,7 @@ void ConfigCheck(config_t config)
 		isError = true;
 	}
 
-	if (strlen(config.ssh_string) == 0)	
+	if (strlen(config.ssh_string) == 0)
 	{
 		isError = true;
 	}
@@ -730,7 +727,8 @@ config_t *ConfigLoad(void)
 
 	char config_file_path[PATH_MAX] = { 0 };
 
-	snprintf(config_file_path, PATH_MAX, "%s%c%s", DROP_CONFIG_DIRECTORY, SLASH, DROP_CONFIG_FILE);
+	snprintf(config_file_path, PATH_MAX, "%s%c%s", DROP_CONFIG_DIRECTORY,
+		 SLASH, DROP_CONFIG_FILE);
 
 	FILE *f = fopen(config_file_path, "r");
 	if (f == NULL)
@@ -743,39 +741,43 @@ config_t *ConfigLoad(void)
 #define CONFIG_MAX_LINES 20
 	char map[BUFSIZE * CONFIG_MAX_LINES] = { 0 };
 
-	int line_count = 0;	
+	int line_count = 0;
 	while ((fgets(line, sizeof(line), f)) != NULL)
 	{
 		if (line_count >= CONFIG_MAX_LINES)
 		{
-			Error("Unexpected content in %s", config_file_path);	
+			Error("Unexpected content in %s", config_file_path);
 		}
 
 		strlcat(map, line, sizeof(map));
 		++line_count;
 	}
-	
+
 	fclose(f);
 
-	int result = ConfigValue(map, CONFIG_DIRECTORY, config->directory, PATH_MAX);
+	int result =
+		ConfigValue(map, CONFIG_DIRECTORY, config->directory,
+			    PATH_MAX);
 	if (!result)
 	{
 		// Could check config on missing option basis...
 	}
 
-	result = ConfigValue(map, CONFIG_REMOTE, config->remote_directory, PATH_MAX);
-	if (!result)
-	{
-		// Could check config on missing option basis...
-	}
-	
-	result = ConfigValue(map, CONFIG_SSH, config->ssh_string, sizeof(config->ssh_string));
+	result = ConfigValue(map, CONFIG_REMOTE, config->remote_directory,
+			     PATH_MAX);
 	if (!result)
 	{
 		// Could check config on missing option basis...
 	}
 
-	// Check the configuration file generically	
+	result = ConfigValue(map, CONFIG_SSH, config->ssh_string,
+			     sizeof(config->ssh_string));
+	if (!result)
+	{
+		// Could check config on missing option basis...
+	}
+
+	// Check the configuration file generically 
 	ConfigCheck(*config);
 
 	return config;
@@ -784,8 +786,9 @@ config_t *ConfigLoad(void)
 
 void Usage(void)
 {
-	Error("drop didn't start!"); // args = [ dir, user, pass ] 
+	Error("drop didn't start!");	// args = [ dir, user, pass ] 
 }
+
 // I think I'm going to blow my beans!
 
 int main(int argc, char **argv)
@@ -800,13 +803,11 @@ int main(int argc, char **argv)
 
 	directory = argv[1];
 	user = argv[2];
-    pass = argv[3];
-    
+	pass = argv[3];
+
 	Prepare();
 
 	MonitorPath(directory);
 
 	return EXIT_SUCCESS;
 }
-
-
