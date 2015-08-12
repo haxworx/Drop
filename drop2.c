@@ -72,8 +72,8 @@ size_t strlcat(char *d, char const *s, size_t n)
 bool debugging = false;
 
 char *directory = NULL;
-const char *user = NULL;
-const char *pass = NULL;
+const char *username = NULL;
+const char *password = NULL;
 
 
 
@@ -186,7 +186,7 @@ bool RemoteFileDel(char *file)
 		"Password: %s\r\n" "Filename: %s\r\n" "Action: DEL\r\n\r\n";
 
 	snprintf(post, sizeof(post), fmt, REMOTE_URI, REMOTE_HOST,
-		 content_length, user, pass, file_from_path);
+		 content_length, username, password, file_from_path);
 
 	Write(sock, post, strlen(post));
 
@@ -246,7 +246,7 @@ bool RemoteFileAdd(char *file)
 		"Password: %s\r\n" "Filename: %s\r\n" "Action: ADD\r\n\r\n";
 
 	snprintf(post, sizeof(post), fmt, REMOTE_URI, REMOTE_HOST,
-		 content_length, user, pass, file_from_path);
+		 content_length, username, password, file_from_path);
 
 	Write(sock, post, strlen(post));
 
@@ -311,6 +311,22 @@ void Trim(char *string)
 	}
 }
 
+void WindowsSanifyPath(char *path)
+{
+	char *p = path;
+
+	while (*p)
+	{
+		if (*p == '\\')
+		{
+			*p = '/';
+		}
+		
+		p++;
+	}
+}
+
+
 void FileListFree(File_t * list)
 {
 	File_t *c = list;
@@ -347,60 +363,14 @@ void FileListAdd(File_t * list, char *path, ssize_t size, unsigned int mode,
 		c->next = NULL;
 
 		char *p = PathStrip(path);
-
+		
+		WindowsSanifyPath(p);
+		
 		strlcpy(c->path, p, PATH_MAX);
 		c->mode = mode;
 		c->size = size;
 		c->mtime = mtime;
 	}
-}
-
-#include <errno.h>
-
-File_t *FilesInDirectory(const char *path)
-{
-	DIR *d = NULL;
-	struct dirent *dirent = NULL;
-	d = opendir(path);
-	if (d == NULL)
-	{
-		Error("opendir()");
-	}
-
-	File_t *list = calloc(1, sizeof(File_t));
-	if (list == NULL)
-	{
-		Error("calloc()");
-	}
-
-	while ((dirent = readdir(d)) != NULL)
-	{
-		if (!strncmp(dirent->d_name, ".", 1))
-		{
-			continue;
-		}
-
-		char path_full[PATH_MAX] = { 0 };
-		snprintf(path_full, PATH_MAX, "%s%c%s", path, SLASH,
-			 dirent->d_name);
-
-		struct stat fs;
-		stat(path_full, &fs);
-
-		if (S_ISDIR(fs.st_mode))
-		{
-			continue;
-		}
-		else
-		{
-			FileListAdd(list, path_full, fs.st_size, fs.st_mode,
-				    fs.st_mtime);
-		}
-	}
-
-	closedir(d);
-
-	return list;
 }
 
 #define CHANGE_ADD 0x01
@@ -426,7 +396,8 @@ File_t *FileExists(File_t * list, char *filename)
 int ActOnFileDel(File_t * first, File_t * second)
 {
 	File_t *f = first;
-	bool isChanged = false;
+	int isChanged = 0;
+	
 	while (f)
 	{
 		File_t *exists = FileExists(second, f->path);
@@ -488,6 +459,55 @@ int ActOnFileAdd(File_t * first, File_t * second)
 	return isChanged;
 }
 
+
+#include <errno.h>
+
+File_t *FilesInDirectory(const char *path)
+{
+	DIR *d = NULL;
+	struct dirent *dirent = NULL;
+	d = opendir(path);
+	if (d == NULL)
+	{
+		Error("opendir()");
+	}
+
+	File_t *list = calloc(1, sizeof(File_t));
+	if (list == NULL)
+	{
+		Error("calloc()");
+	}
+
+	while ((dirent = readdir(d)) != NULL)
+	{
+		if (!strncmp(dirent->d_name, ".", 1))
+		{
+			continue;
+		}
+
+		char path_full[PATH_MAX] = { 0 };
+		snprintf(path_full, PATH_MAX, "%s%c%s", path, SLASH,
+			 dirent->d_name);
+
+		struct stat fs;
+		stat(path_full, &fs);
+
+		if (S_ISDIR(fs.st_mode))
+		{
+			continue;
+		}
+		else
+		{
+			FileListAdd(list, path_full, fs.st_size, fs.st_mode,
+				    fs.st_mtime);
+		}
+	}
+
+	closedir(d);
+
+	return list;
+}
+
 #define STATE_FILE_FORMAT "%s %u %u %u"
 #define DROP_CONFIG_DIRECTORY ".drop"
 #define DROP_CONFIG_FILE "drop.cfg"
@@ -520,55 +540,6 @@ void SaveFileState(File_t * list)
 
 	fclose(f);
 }
-
-#define COMMAND_MAX 2048
-
-typedef struct config_t config_t;
-struct config_t
-{
-	char directory[PATH_MAX];
-	char remote_directory[PATH_MAX];
-	char ssh_string[COMMAND_MAX];
-};
-
-
-void CompareFileLists(File_t * first, File_t * second)
-{
-	bool store_state = false;
-	int modifications = 0;
-	
-	modifications += ActOnFileAdd(first, second);
-	modifications += ActOnFileDel(first, second);
-	modifications += ActOnFileMod(first, second);
-	
-	if (modifications)
-	{
-		printf("total of %d changes\n\n", modifications);
-		store_state = true;
-	}
-	
-	if (store_state)
-	{
-		SaveFileState(second);
-	}
-}
-
-// Am I going to do a poo Jez???
-void Prepare(void)
-{
-	struct stat fstats;
-
-	if (stat(DROP_CONFIG_DIRECTORY, &fstats) < 0)
-	{
-		mkdir(DROP_CONFIG_DIRECTORY, 0777);
-	}
-
-	if (!S_ISDIR(fstats.st_mode))
-	{
-		Error("%s is not a directory", DROP_CONFIG_DIRECTORY);
-	}
-}
-
 
 File_t *ListFromStateFile(const char *state_file_path)
 {
@@ -606,23 +577,45 @@ File_t *ListFromStateFile(const char *state_file_path)
 	return list;
 }
 
-void WindowsSanifyPath(char *path)
-{
-	char *p = path;
+#define COMMAND_MAX 2048
 
-	while (*p)
+typedef struct config_t config_t;
+struct config_t
+{
+	char directory[PATH_MAX];
+	char remote_directory[PATH_MAX];
+	char ssh_string[COMMAND_MAX];
+};
+
+void CompareFileLists(File_t * first, File_t * second)
+{
+	bool store_state = false;
+	int modifications = 0;
+	
+	modifications += ActOnFileAdd(first, second);
+	modifications += ActOnFileDel(first, second);
+	modifications += ActOnFileMod(first, second);
+	
+	if (modifications)
 	{
-		if (*p == '\\')
-		{
-			*p = '/';
-		}
-		
-		if (*p == ' ')
-		{
-			*p = '_';
-		}
-		
-		p++;
+		printf("total of %d changes\n\n", modifications);
+		store_state = true;
+	}
+	
+	if (store_state)
+	{
+		SaveFileState(second);
+	}
+}
+
+// Am I going to do a poo Jez???
+void Prepare(void)
+{
+	struct stat fstats;
+
+	if (stat(DROP_CONFIG_DIRECTORY, &fstats) < 0)
+	{
+		mkdir(DROP_CONFIG_DIRECTORY, 0777);
 	}
 }
 
@@ -663,7 +656,7 @@ void MonitorPath(char *path)
 {
 	File_t *file_list_one = FirstRun(path);	// FilesInDirectory(path); 
 	printf("watching: %s\n", path);
-	printf("syncing: http://%s/%s\n", REMOTE_HOST, user);
+	printf("syncing: http://%s/%s\n", REMOTE_HOST, username);
 
 	for (;;)
 	{
@@ -803,7 +796,7 @@ void About(void)
 
 void AboutRemoteURL(void)
 {
-	printf("Remote URL http://%s/%s\n", REMOTE_HOST, user);
+	printf("Remote URL http://%s/%s\n", REMOTE_HOST, username);
 }
 
 void Version(void)
@@ -829,8 +822,8 @@ int main(int argc, char **argv)
 	stdout = stderr;
 
 	directory = argv[1];
-	user = argv[2];
-	pass = argv[3];
+	username = argv[2];
+	password = argv[3];
 
 	Prepare();
 
