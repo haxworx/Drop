@@ -7,9 +7,6 @@ HAIKU=-lnetwork
 WINDOWS=-DWINDOWS -static
 
 default:
-	gcc $(CFLAGS) $(OPTIONS) $(SOURCE) -o $(EXEC)
-
-windows:
 	gcc $(CFLAGS) $(OPTIONS) $(WINDOWS) $(SOURCE) -o $(EXEC)
 
 haiku: 
