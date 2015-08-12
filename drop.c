@@ -656,6 +656,7 @@ void MonitorPath(char *path)
 {
 	File_t *file_list_one = FirstRun(path);	// FilesInDirectory(path); 
 	printf("watching: %s\n", path);
+	printf("syncing: http://%s/%s\n", REMOTE_HOST, user);
 
 	for (;;)
 	{
