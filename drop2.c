@@ -423,40 +423,36 @@ File_t *FileExists(File_t * list, char *filename)
 	return NULL;
 }
 
-bool ActOnFileDel(File_t * first, File_t * second, Mod_t **changes)
+void ActOnFileDel(File_t * first, File_t * second, Mod_t **changes, int *changes_max)
 {
 	File_t *f = first;
-	int changes_max = 0;
-
+	
 	while (f)
 	{
 		File_t *exists = FileExists(second, f->path);
 		if (!exists)
 		{
-			changes = realloc(changes, 1 + changes_max * sizeof(Mod_t **));
+			changes = realloc(changes, 1 + *changes_max * sizeof(Mod_t **));
 			printf("del file %s\n", f->path);
 				
-			changes[changes_max] = calloc(1, sizeof(Mod_t));
-			Mod_t *m = changes[changes_max];
+			changes[*changes_max] = calloc(1, sizeof(Mod_t));
+			Mod_t *m = changes[*changes_max];
 			if (m == NULL)
 			{
 				Error("calloc() changes[ARRAY]");
 			}
 			snprintf(m->filename, PATH_MAX, "%s", f->path);
 			m->type = CHANGE_DEL;
-			++changes_max;
+			++(*changes_max);
 		}
 
 		f = f->next;
 	}
-
-	return changes_max;
 }
 
-int ActOnFileMod(File_t * first, File_t * second, Mod_t **changes)
+void ActOnFileMod(File_t * first, File_t * second, Mod_t **changes, int *changes_max)
 {
 	File_t *f = second;
-	int changes_max = 0;
 
 	while (f)
 	{
@@ -465,42 +461,39 @@ int ActOnFileMod(File_t * first, File_t * second, Mod_t **changes)
 		{
 			if (f->mtime != exists->mtime)
 			{
-				changes = realloc(changes, 1 + changes_max * sizeof(Mod_t **));
+				changes = realloc(changes, 1 + *changes_max * sizeof(Mod_t **));
 				printf("mod file %s\n", f->path);
 				
-				changes[changes_max] = calloc(1, sizeof(Mod_t));
-				Mod_t *m = changes[changes_max];
+				changes[*changes_max] = calloc(1, sizeof(Mod_t));
+				Mod_t *m = changes[*changes_max];
 				if (m == NULL)
 				{
 					Error("calloc() changes[ARRAY]");
 				}
 				snprintf(m->filename, PATH_MAX, "%s", f->path);
 				m->type = CHANGE_MOD;
-				++changes_max;
+				++(*changes_max);
 			}
 		}
 
 		f = f->next;
 	}
-
-	return changes_max;
 }
 
-int ActOnFileAdd(File_t * first, File_t * second, Mod_t **changes)
+void ActOnFileAdd(File_t * first, File_t * second, Mod_t **changes, int *changes_max)
 {
 	File_t *f = second;
-	int changes_max = 0;
 	
 	while (f)
 	{
 		File_t *exists = FileExists(first, f->path);
 		if (!exists)
 		{
-			changes = realloc(changes, 1 + changes_max * sizeof(Mod_t **));
+			changes = realloc(changes, 1 + *changes_max * sizeof(Mod_t **));
 			printf("add file %s\n", f->path);
 			
-			changes[changes_max] = calloc(1, sizeof(Mod_t));
-			Mod_t *c = changes[changes_max];
+			changes[*changes_max] = calloc(1, sizeof(Mod_t));
+			Mod_t *c = changes[*changes_max];
 			if (c == NULL)
 			{
 				Error("calloc() changes[ARRAY]");
@@ -508,13 +501,11 @@ int ActOnFileAdd(File_t * first, File_t * second, Mod_t **changes)
 			
 			snprintf(c->filename, PATH_MAX, "%s", f->path);
 			c->type = CHANGE_ADD;
-			++changes_max;
+			++(*changes_max);
 		}
 
 		f = f->next;
 	}
-
-	return changes_max;
 }
 
 #define STATE_FILE_FORMAT "%s %u %u %u"
@@ -562,33 +553,46 @@ struct config_t
 
 void ProcessChanges(Mod_t **changes, int max)
 {
+	
 	for (int i = 0; i < max; i++)
 	{
-		Mod_t *change = changes[i];
-		switch(change->type)
+		Mod_t changed_object = *changes[i];
+
+		switch(changed_object.type)
 		{
 			case CHANGE_ADD:
-				printf("remote add %s\n", change->filename);
-				HTTP_Post_File(change->filename);
+				printf("remote add %s\n", changed_object.filename);
+				HTTP_Post_File(changed_object.filename);
 				printf("OK!\n");
 			break;
 		
 			case CHANGE_MOD:
-				printf("remote mod %s\n", change->filename);
-				HTTP_Post_File(change->filename);
+				printf("remote mod %s\n", changed_object.filename);
+				HTTP_Post_File(changed_object.filename);
 				printf("OK!\n");
 			break;
 		
 			case CHANGE_DEL:
-				printf("remote del %s\n", change->filename);
-				HTTP_Post_File_Remove(change->filename);
+				printf("remote del %s\n", changed_object.filename);
+				HTTP_Post_File_Remove(changed_object.filename);
 				printf("OK!\n");
 			break;
 		}
 		
-		free(change);
+		//free(changed_object);
 	}
 }
+
+int GetCPUCount(void)
+{
+	return 4; // test at home
+}
+
+#include <sys/types.h>
+#include <sys/wait.h>
+
+
+/* This is a monster!!!! */
 
 void CompareFileLists(File_t * first, File_t * second)
 {
@@ -597,32 +601,22 @@ void CompareFileLists(File_t * first, File_t * second)
 	
 	Mod_t **changes = calloc(1, sizeof(Mod_t **));
 	
-	modifications += ActOnFileAdd(first, second, changes);
+	ActOnFileAdd(first, second, changes, &modifications);
+	
+	ActOnFileDel(first, second, changes, &modifications);
+
+	ActOnFileMod(first, second, changes, &modifications);
+	
 	if (modifications)
 	{
+		printf("mods %d\n", modifications);
+		ProcessChanges(changes, modifications);
 		store_state = true;
+		free(changes);
 	}
 	
-	modifications += ActOnFileDel(first, second, changes);
-	if (modifications)
-	{
-		store_state = true;
-	}
-
-	modifications += ActOnFileMod(first, second, changes);
-	if (modifications)
-	{
-		store_state = true;
-	}
-	printf("we have %d mods\n", modifications);
-	if (modifications) 
-	{
-		ProcessChanges(changes, modifications);
-	}
-	// this s/is/was bullshit jeremy!
 	if (store_state)
 	{
-		// free(changes);
 		SaveFileState(second);
 	}
 }
@@ -670,6 +664,7 @@ File_t *ListFromStateFile(const char *state_file_path)
 		{
 			FileListAdd(list, path, s, m, t);
 		}
+		
 		memset(line, 0, sizeof(line));
 	}
 

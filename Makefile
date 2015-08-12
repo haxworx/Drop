@@ -1,4 +1,4 @@
-SOURCE=drop.c
+SOURCE=drop2.c
 INSTALL_DIR=/usr/local/bin
 CFLAGS=-std=c99 -Wall -Werror -pedantic 
 EXEC=drop
