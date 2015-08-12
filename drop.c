@@ -788,13 +788,22 @@ config_t *ConfigLoad(void)
 	return config;
 }
 
+void About(void)
+{
+	printf("Copyright (c) 2015, Al Poole <netstar@gmail.com> All rights reserved.\n");
+}
+
+void Version(void)
+{
+	printf("Drop version 0.0.2a\n");
+}
 
 void Usage(void)
 {
-	Error("drop didn't start!");	// args = [ dir, user, pass ] 
+	About();
+	Version();
+	Error("Drop didn't start");
 }
-
-// I think I'm going to blow my beans!
 
 int main(int argc, char **argv)
 {
@@ -812,6 +821,8 @@ int main(int argc, char **argv)
 
 	Prepare();
 
+	About();
+	Version();
 	MonitorPath(directory);
 
 	return EXIT_SUCCESS;
