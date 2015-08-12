@@ -793,6 +793,11 @@ void About(void)
 	printf("Copyright (c) 2015, Al Poole <netstar@gmail.com> All rights reserved.\n");
 }
 
+void AboutRemoteURL(void)
+{
+	printf("Remote URL http://%s/%s\n", REMOTE_HOST, user);
+}
+
 void Version(void)
 {
 	printf("Drop version 0.0.2a\n");
@@ -823,6 +828,8 @@ int main(int argc, char **argv)
 
 	About();
 	Version();
+	AboutRemoteURL();
+
 	MonitorPath(directory);
 
 	return EXIT_SUCCESS;
