@@ -158,7 +158,7 @@ ssize_t Write(int sock, char *buf, int len)
 }
 
 
-bool HTTP_Post_File_Remove(char *file)
+bool RemoteFileDel(char *file)
 {
 	char path[PATH_MAX] = { 0 };
 
@@ -195,7 +195,7 @@ bool HTTP_Post_File_Remove(char *file)
 	return true;
 }
 
-bool HTTP_Post_File(char *file)
+bool RemoteFileAdd(char *file)
 {
 	char path[PATH_MAX] = { 0 };
 
@@ -423,37 +423,31 @@ File_t *FileExists(File_t * list, char *filename)
 	return NULL;
 }
 
-void ActOnFileDel(File_t * first, File_t * second, Mod_t **changes, int *changes_max)
+int ActOnFileDel(File_t * first, File_t * second)
 {
 	File_t *f = first;
-	
+	bool isChanged = false;
 	while (f)
 	{
 		File_t *exists = FileExists(second, f->path);
 		if (!exists)
 		{
-			changes = realloc(changes, 1 + *changes_max * sizeof(Mod_t **));
 			printf("del file %s\n", f->path);
-				
-			changes[*changes_max] = calloc(1, sizeof(Mod_t));
-			Mod_t *m = changes[*changes_max];
-			if (m == NULL)
-			{
-				Error("calloc() changes[ARRAY]");
-			}
-			snprintf(m->filename, PATH_MAX, "%s", f->path);
-			m->type = CHANGE_DEL;
-			++(*changes_max);
+			RemoteFileDel(f->path);
+			isChanged++;
 		}
 
 		f = f->next;
 	}
+
+	return isChanged;
 }
 
-void ActOnFileMod(File_t * first, File_t * second, Mod_t **changes, int *changes_max)
+int ActOnFileMod(File_t * first, File_t * second)
 {
 	File_t *f = second;
-
+	int isChanged = 0;
+	
 	while (f)
 	{
 		File_t *exists = FileExists(first, f->path);
@@ -461,51 +455,37 @@ void ActOnFileMod(File_t * first, File_t * second, Mod_t **changes, int *changes
 		{
 			if (f->mtime != exists->mtime)
 			{
-				changes = realloc(changes, 1 + *changes_max * sizeof(Mod_t **));
 				printf("mod file %s\n", f->path);
-				
-				changes[*changes_max] = calloc(1, sizeof(Mod_t));
-				Mod_t *m = changes[*changes_max];
-				if (m == NULL)
-				{
-					Error("calloc() changes[ARRAY]");
-				}
-				snprintf(m->filename, PATH_MAX, "%s", f->path);
-				m->type = CHANGE_MOD;
-				++(*changes_max);
+				RemoteFileAdd(f->path);
+				isChanged++;
 			}
 		}
 
 		f = f->next;
 	}
+	
+	return isChanged;
 }
 
-void ActOnFileAdd(File_t * first, File_t * second, Mod_t **changes, int *changes_max)
+int ActOnFileAdd(File_t * first, File_t * second)
 {
 	File_t *f = second;
+	int isChanged = 0;
 	
 	while (f)
 	{
 		File_t *exists = FileExists(first, f->path);
 		if (!exists)
 		{
-			changes = realloc(changes, 1 + *changes_max * sizeof(Mod_t **));
 			printf("add file %s\n", f->path);
-			
-			changes[*changes_max] = calloc(1, sizeof(Mod_t));
-			Mod_t *c = changes[*changes_max];
-			if (c == NULL)
-			{
-				Error("calloc() changes[ARRAY]");
-			}
-			
-			snprintf(c->filename, PATH_MAX, "%s", f->path);
-			c->type = CHANGE_ADD;
-			++(*changes_max);
+			RemoteFileAdd(f->path);
+			isChanged++;
 		}
 
 		f = f->next;
 	}
+	
+	return isChanged;
 }
 
 #define STATE_FILE_FORMAT "%s %u %u %u"
@@ -551,68 +531,20 @@ struct config_t
 	char ssh_string[COMMAND_MAX];
 };
 
-void ProcessChanges(Mod_t **changes, int max)
-{
-	
-	for (int i = 0; i < max; i++)
-	{
-		Mod_t changed_object = *changes[i];
-
-		switch(changed_object.type)
-		{
-			case CHANGE_ADD:
-				printf("remote add %s\n", changed_object.filename);
-				HTTP_Post_File(changed_object.filename);
-				printf("OK!\n");
-			break;
-		
-			case CHANGE_MOD:
-				printf("remote mod %s\n", changed_object.filename);
-				HTTP_Post_File(changed_object.filename);
-				printf("OK!\n");
-			break;
-		
-			case CHANGE_DEL:
-				printf("remote del %s\n", changed_object.filename);
-				HTTP_Post_File_Remove(changed_object.filename);
-				printf("OK!\n");
-			break;
-		}
-		
-		//free(changed_object);
-	}
-}
-
-int GetCPUCount(void)
-{
-	return 4; // test at home
-}
-
-#include <sys/types.h>
-#include <sys/wait.h>
-
-
-/* This is a monster!!!! */
 
 void CompareFileLists(File_t * first, File_t * second)
 {
 	bool store_state = false;
 	int modifications = 0;
 	
-	Mod_t **changes = calloc(1, sizeof(Mod_t **));
-	
-	ActOnFileAdd(first, second, changes, &modifications);
-	
-	ActOnFileDel(first, second, changes, &modifications);
-
-	ActOnFileMod(first, second, changes, &modifications);
+	modifications += ActOnFileAdd(first, second);
+	modifications += ActOnFileDel(first, second);
+	modifications += ActOnFileMod(first, second);
 	
 	if (modifications)
 	{
-		printf("mods %d\n", modifications);
-		ProcessChanges(changes, modifications);
+		printf("total of %d changes\n\n", modifications);
 		store_state = true;
-		free(changes);
 	}
 	
 	if (store_state)
@@ -662,9 +594,10 @@ File_t *ListFromStateFile(const char *state_file_path)
 		int result = sscanf(line, STATE_FILE_FORMAT, path, &s, &m, &t);
 		if (result == 4)
 		{
+			
 			FileListAdd(list, path, s, m, t);
 		}
-		
+			
 		memset(line, 0, sizeof(line));
 	}
 
@@ -683,6 +616,12 @@ void WindowsSanifyPath(char *path)
 		{
 			*p = '/';
 		}
+		
+		if (*p == ' ')
+		{
+			*p = '_';
+		}
+		
 		p++;
 	}
 }
