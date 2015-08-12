@@ -24,11 +24,11 @@
 
  */
 
-/* Thanks to Sam Watkin, Jason Pierce and Chris Rahm for being good friends
+/* Thanks to Sam Watkins, Jason Pierce and Chris Rahm for being good friends
    over the years!
 */
 
-#define _BSD_SOURCE 0x00000001
+#define _BSD_SOURCE 0x0001
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
