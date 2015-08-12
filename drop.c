@@ -800,12 +800,12 @@ void AboutRemoteURL(void)
 
 void Version(void)
 {
+	About();
 	printf("Drop version 0.0.2a\n");
 }
 
 void Usage(void)
 {
-	About();
 	Version();
 	Error("Drop didn't start");
 }
@@ -826,9 +826,7 @@ int main(int argc, char **argv)
 
 	Prepare();
 
-	About();
 	Version();
-	AboutRemoteURL();
 
 	MonitorPath(directory);
 
