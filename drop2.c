@@ -541,6 +541,7 @@ void SaveFileState(File_t * list)
 	fclose(f);
 }
 
+// This is slightly bogus but it does work...
 bool GetStateFileValues(char *text, char *buf, int *size, int *mode, int *ctime)
 {
 	const char delim[] = "\t\0";
