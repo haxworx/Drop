@@ -27,6 +27,8 @@
 /* Thanks to Sam Watkins, Jason Pierce and Chris Rahm for being good friends
    over the years!
 */
+#define PROGRAM_NAME "drop"
+#define PROGRAM_VERSION "0.2.0"
 
 #define _BSD_SOURCE 0x0001
 #include <stdio.h>
@@ -786,7 +788,8 @@ File_t *FirstRun(char *path)
 }
 
 // time between scans of path in MonitorPath
-unsigned int changes_interval = 3;
+unsigned int changes_interval = 2;
+// 2 seconds like our old friend arcs :-)
 
 void MonitorPath(char *path)
 {
@@ -942,7 +945,7 @@ void AboutRemoteURL(void)
 void Version(void)
 {
 	About();
-	printf("Drop version 0.0.2a\n");
+	printf("Drop version %s\n", PROGRAM_VERSION);
 	printf("Maximum concurrancy %d\n", parallel_max);
 }
 
