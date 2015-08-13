@@ -74,6 +74,7 @@ size_t strlcat(char *d, char const *s, size_t n)
 bool debugging = false;
 
 char *directory = NULL;
+char *hostname = NULL;
 const char *username = NULL;
 const char *password = NULL;
 static const int parallel_max = 16;
@@ -147,7 +148,6 @@ int Connect(char *hostname, int port)
 }
 
 #define REMOTE_URI "/drop.cgi"
-#define REMOTE_HOST "haxlab.org"
 #define REMOTE_PORT 80
 
 ssize_t Write(int sock, char *buf, int len)
@@ -170,7 +170,7 @@ bool RemoteFileDel(char *file)
 		printf("the path is %s\n", path);
 	}
 
-	int sock = Connect(REMOTE_HOST, REMOTE_PORT);
+	int sock = Connect(hostname, REMOTE_PORT);
 	if (!sock)
 	{
 		Error("Could not Connect()");
@@ -185,9 +185,11 @@ bool RemoteFileDel(char *file)
 		"Host: %s\r\n"
 		"Content-Length: %d\r\n"
 		"Username: %s\r\n"
-		"Password: %s\r\n" "Filename: %s\r\n" "Action: DEL\r\n\r\n";
+		"Password: %s\r\n"
+		"Filename: %s\r\n"
+		"Action: DEL\r\n\r\n";
 
-	snprintf(post, sizeof(post), fmt, REMOTE_URI, REMOTE_HOST,
+	snprintf(post, sizeof(post), fmt, REMOTE_URI, hostname,
 		 content_length, username, password, file_from_path);
 
 	Write(sock, post, strlen(post));
@@ -207,7 +209,7 @@ bool RemoteFileAdd(char *file)
 		printf("the path is %s\n", path);
 	}
 
-	int sock = Connect(REMOTE_HOST, REMOTE_PORT);
+	int sock = Connect(hostname, REMOTE_PORT);
 	if (!sock)
 	{
 		Error("Could not Connect()");
@@ -245,9 +247,11 @@ bool RemoteFileAdd(char *file)
 		"Host: %s\r\n"
 		"Content-Length: %d\r\n"
 		"Username: %s\r\n"
-		"Password: %s\r\n" "Filename: %s\r\n" "Action: ADD\r\n\r\n";
+		"Password: %s\r\n"
+		"Filename: %s\r\n"
+		"Action: ADD\r\n\r\n";
 
-	snprintf(post, sizeof(post), fmt, REMOTE_URI, REMOTE_HOST,
+	snprintf(post, sizeof(post), fmt, REMOTE_URI, hostname,
 		 content_length, username, password, file_from_path);
 
 	Write(sock, post, strlen(post));
@@ -788,7 +792,7 @@ void MonitorPath(char *path)
 {
 	File_t *file_list_one = FirstRun(path);	// FilesInDirectory(path); 
 	printf("watching locally: %s\n", path);
-	printf("syncing remotely: http://%s/%s\n", REMOTE_HOST, username);
+	printf("syncing remotely: http://%s/%s\n", hostname, username);
 
 	for (;;)
 	{
@@ -833,11 +837,13 @@ int ConfigValue(char *text, char *name, char *destination, ssize_t len)
 typedef struct config_t config_t;
 struct config_t {
 	char directory[PATH_MAX];
+	char hostname[BUF_MAX];
 	char username[BUF_MAX];
 	char password[BUF_MAX];
 };
 
 #define CONFIG_DIRECTORY "DIRECTORY"
+#define CONFIG_HOSTNAME  "HOSTNAME"
 #define CONFIG_USERNAME  "USERNAME"
 #define CONFIG_PASSWORD  "PASSWORD"
 
@@ -899,6 +905,13 @@ config_t *ConfigLoad(void)
 		return NULL;// Could check config on missing option basis...
 	}
 
+	result = ConfigValue(map, CONFIG_HOSTNAME, config->hostname,
+			     sizeof(config->hostname));
+	if (!result)
+	{
+		return NULL;
+	}
+	
 	return config;
 }
 
@@ -923,7 +936,7 @@ void About(void)
 
 void AboutRemoteURL(void)
 {
-	printf("Remote URL http://%s/%s\n", REMOTE_HOST, username);
+	printf("Remote URL http://%s/%s\n", hostname, username);
 }
 
 void Version(void)
@@ -954,6 +967,7 @@ int main(int argc, char **argv)
 			directory = argv[1];
 			username  = argv[2];
 			password  = argv[3];
+			hostname  = argv[4];
 		} else
 		{
 			Usage();
@@ -964,6 +978,7 @@ int main(int argc, char **argv)
 		directory = Configuration->directory;
 		username  = Configuration->username;
 		password  = Configuration->password;
+		hostname  = Configuration->hostname;
 	}
 
 	Version();
