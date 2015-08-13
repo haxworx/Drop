@@ -878,8 +878,9 @@ void ConfigCheck(config_t config)
 
 config_t *ConfigLoad(void)
 {
+	return NULL; // don't need this for now!
 	config_t *config = calloc(1, sizeof(config_t));
-
+	
 	char config_file_path[PATH_MAX] = { 0 };
 
 	snprintf(config_file_path, PATH_MAX, "%s%c%s", DROP_CONFIG_DIRECTORY,
@@ -929,7 +930,7 @@ config_t *ConfigLoad(void)
 			     sizeof(config->ssh_string));
 	if (!result)
 	{
-		// Could check config on missing option basis...
+		return NULL;// Could check config on missing option basis...
 	}
 
 	// Check the configuration file generically 
@@ -971,12 +972,16 @@ int main(int argc, char **argv)
 	// weird hack...
 	stdout = stderr;
 
-	directory = argv[1];
-	username = argv[2];
-	password = argv[3];
-
 	Prepare();
 
+	config_t *Configuration = ConfigLoad();
+	if (Configuration == NULL)
+	{
+		directory = argv[1];
+		username  = argv[2];
+		password  = argv[3];
+	}
+	
 	Version();
 
 	MonitorPath(directory);
