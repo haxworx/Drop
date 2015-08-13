@@ -751,17 +751,6 @@ void CompareFileLists(File_t * first, File_t * second)
 	}
 }
 
-// Am I going to do a poo Jez???
-void Prepare(void)
-{
-	struct stat fstats;
-
-	if (stat(DROP_CONFIG_DIRECTORY, &fstats) < 0)
-	{
-		mkdir(DROP_CONFIG_DIRECTORY, 0777);
-	}
-}
-
 File_t *FirstRun(char *path)
 {
 	char state_file_path[PATH_MAX] = { 0 };
@@ -913,6 +902,20 @@ config_t *ConfigLoad(void)
 	return config;
 }
 
+// Am I going to do a poo Jez???
+void Prepare(void)
+{
+	struct stat fstats;
+
+	// weird hack for using Python and Tk toolkit GUI...
+	stdout = stderr;
+	
+	if (stat(DROP_CONFIG_DIRECTORY, &fstats) < 0)
+	{
+		mkdir(DROP_CONFIG_DIRECTORY, 0777);
+	}
+}
+
 void About(void)
 {
 	printf("Copyright (c) 2015, Al Poole <netstar@gmail.com> All rights reserved.\n");
@@ -939,12 +942,22 @@ void Usage(void)
 int main(int argc, char **argv)
 {
 	Prepare();
+
 	config_t *Configuration = ConfigLoad();
-	if (!Configuration && argc == 4)
+
+	if (! Configuration)
 	{
-		directory = argv[1];
-		username  = argv[2];
-		password  = argv[3];
+		// Allow from command-line args
+		// Don't brag about it though!!!
+		if (argc == 4)
+		{
+			directory = argv[1];
+			username  = argv[2];
+			password  = argv[3];
+		} else
+		{
+			Usage();
+		}
 	}
 	else if (Configuration)
 	{
@@ -952,12 +965,6 @@ int main(int argc, char **argv)
 		username  = Configuration->username;
 		password  = Configuration->password;
 	}
-	else
-	{
-		Usage();
-	}
-	// weird hack...
-	stdout = stderr;
 
 	Version();
 
