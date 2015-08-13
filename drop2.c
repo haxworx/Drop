@@ -508,7 +508,7 @@ File_t *FilesInDirectory(const char *path)
 	return list;
 }
 
-#define STATE_FILE_FORMAT "%s %u %u %u"
+#define STATE_FILE_FORMAT "%s\t%u\t%u\t%u"
 #define DROP_CONFIG_DIRECTORY ".drop"
 #define DROP_CONFIG_FILE "drop.cfg"
 #define DROP_STATE_FILE "state"
@@ -541,6 +541,36 @@ void SaveFileState(File_t * list)
 	fclose(f);
 }
 
+bool GetStateFileValues(char *text, char *buf, int *size, int *mode, int *ctime)
+{
+	const char delim[] = "\t\0";
+	
+	char *ptr = strtok(text, delim);
+	if (ptr)
+	{
+		snprintf(buf, PATH_MAX, "%s", ptr);
+		ptr = strtok(NULL, delim);
+		if (ptr)
+		{
+			*size = atoi(ptr);
+			ptr = strtok(NULL, delim);
+			if (ptr)
+			{
+				*mode = atoi(ptr);
+				ptr = strtok(NULL, delim);
+				if (ptr)
+				{
+					*ctime = atoi(ptr);
+					return true;
+				
+				}
+			}
+		}
+	}
+	
+	return false;	
+}
+
 File_t *ListFromStateFile(const char *state_file_path)
 {
 	FILE *f = fopen(state_file_path, "r");
@@ -550,8 +580,7 @@ File_t *ListFromStateFile(const char *state_file_path)
 	}
 
 	char path[PATH_MAX] = { 0 };
-	unsigned int s, m, t;
-
+	
 	File_t *list = calloc(1, sizeof(File_t));
 	if (list == NULL)
 	{
@@ -562,14 +591,20 @@ File_t *ListFromStateFile(const char *state_file_path)
 	while ((fgets(line, sizeof(line), f)) != NULL)
 	{
 		Trim(line);
-		int result = sscanf(line, STATE_FILE_FORMAT, path, &s, &m, &t);
+		
+		/*int result = sscanf(line, STATE_FILE_FORMAT, path, &s, &m, &t);
 		if (result == 4)
 		{
 			
 			FileListAdd(list, path, s, m, t);
 		}
-			
-		memset(line, 0, sizeof(line));
+		*/
+		int mtime, size, mode;
+		int status = GetStateFileValues(line, path, &size, &mode, &mtime);
+		if (status)
+		{
+			FileListAdd(list, path, size, mode, mtime);
+		}
 	}
 
 	fclose(f);
