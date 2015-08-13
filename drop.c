@@ -72,9 +72,9 @@ size_t strlcat(char *d, char const *s, size_t n)
 bool debugging = false;
 
 char *directory = NULL;
-const char *user = NULL;
-const char *pass = NULL;
-
+const char *username = NULL;
+const char *password = NULL;
+static const int parallel_max = 16;
 
 
 void Error(char *fmt, ...)
@@ -158,7 +158,7 @@ ssize_t Write(int sock, char *buf, int len)
 }
 
 
-bool HTTP_Post_File_Remove(char *file)
+bool RemoteFileDel(char *file)
 {
 	char path[PATH_MAX] = { 0 };
 
@@ -186,7 +186,7 @@ bool HTTP_Post_File_Remove(char *file)
 		"Password: %s\r\n" "Filename: %s\r\n" "Action: DEL\r\n\r\n";
 
 	snprintf(post, sizeof(post), fmt, REMOTE_URI, REMOTE_HOST,
-		 content_length, user, pass, file_from_path);
+		 content_length, username, password, file_from_path);
 
 	Write(sock, post, strlen(post));
 
@@ -195,7 +195,7 @@ bool HTTP_Post_File_Remove(char *file)
 	return true;
 }
 
-bool HTTP_Post_File(char *file)
+bool RemoteFileAdd(char *file)
 {
 	char path[PATH_MAX] = { 0 };
 
@@ -246,7 +246,7 @@ bool HTTP_Post_File(char *file)
 		"Password: %s\r\n" "Filename: %s\r\n" "Action: ADD\r\n\r\n";
 
 	snprintf(post, sizeof(post), fmt, REMOTE_URI, REMOTE_HOST,
-		 content_length, user, pass, file_from_path);
+		 content_length, username, password, file_from_path);
 
 	Write(sock, post, strlen(post));
 
@@ -275,8 +275,6 @@ bool HTTP_Post_File(char *file)
 	close(sock);
 	fclose(f);
 
-	printf("OK!\n");
-
 	return true;
 }
 
@@ -287,7 +285,15 @@ struct File_t
 	unsigned int mode;
 	ssize_t size;
 	unsigned int mtime;
+	int changed;
 	File_t *next;
+};
+
+typedef struct Mod_t Mod_t;
+struct Mod_t
+{
+	char filename[PATH_MAX];
+	int type;
 };
 
 // haircut anyone???
@@ -305,6 +311,22 @@ void Trim(char *string)
 		s++;
 	}
 }
+
+void WindowsSanifyPath(char *path)
+{
+	char *p = path;
+
+	while (*p)
+	{
+		if (*p == '\\')
+		{
+			*p = '/';
+		}
+		
+		p++;
+	}
+}
+
 
 void FileListFree(File_t * list)
 {
@@ -342,13 +364,103 @@ void FileListAdd(File_t * list, char *path, ssize_t size, unsigned int mode,
 		c->next = NULL;
 
 		char *p = PathStrip(path);
-
+		
+		WindowsSanifyPath(p);
+		
 		strlcpy(c->path, p, PATH_MAX);
 		c->mode = mode;
 		c->size = size;
 		c->mtime = mtime;
+		c->changed = 0x00;
 	}
 }
+
+#define FILE_ADD 0x01
+#define FILE_MOD 0x02
+#define FILE_DEL 0x03
+
+File_t *FileExists(File_t * list, char *filename)
+{
+	File_t *f = list;
+
+	while (f)
+	{
+		if (!strcmp(f->path, filename))
+		{
+			return f;
+		}
+		f = f->next;
+	}
+
+	return NULL;
+}
+
+int ActOnFileDel(File_t * first, File_t * second)
+{
+	File_t *f = first;
+	int isChanged = 0;
+	
+	while (f)
+	{
+		File_t *exists = FileExists(second, f->path);
+		if (!exists)
+		{
+			f->changed = FILE_DEL;
+			printf("del file %s\n", f->path);
+			isChanged++;
+		}
+
+		f = f->next;
+	}
+
+	return isChanged;
+}
+
+int ActOnFileMod(File_t * first, File_t * second)
+{
+	File_t *f = second;
+	int isChanged = 0;
+	
+	while (f)
+	{
+		File_t *exists = FileExists(first, f->path);
+		if (exists)
+		{
+			if (f->mtime != exists->mtime)
+			{
+				printf("mod file %s\n", f->path);
+				f->changed = FILE_MOD;
+				isChanged++;
+			}
+		}
+
+		f = f->next;
+	}
+	
+	return isChanged;
+}
+
+int ActOnFileAdd(File_t * first, File_t * second)
+{
+	File_t *f = second;
+	int isChanged = 0;
+	
+	while (f)
+	{
+		File_t *exists = FileExists(first, f->path);
+		if (!exists)
+		{
+			f->changed = FILE_ADD;
+			printf("add file %s\n", f->path);
+			isChanged++;
+		}
+
+		f = f->next;
+	}
+	
+	return isChanged;
+}
+
 
 #include <errno.h>
 
@@ -398,90 +510,7 @@ File_t *FilesInDirectory(const char *path)
 	return list;
 }
 
-File_t *FileExists(File_t * list, char *filename)
-{
-	File_t *f = list;
-
-	while (f)
-	{
-		if (!strcmp(f->path, filename))
-		{
-			return f;
-		}
-		f = f->next;
-	}
-
-	return NULL;
-}
-
-bool ActOnFileDel(File_t * first, File_t * second)
-{
-	File_t *f = first;
-	bool isChanged = false;
-
-	while (f)
-	{
-		File_t *exists = FileExists(second, f->path);
-		if (!exists)
-		{
-			printf("del file %s\n", f->path);
-			HTTP_Post_File_Remove(f->path);
-			printf("OK!\n");
-			isChanged = true;
-		}
-
-		f = f->next;
-	}
-
-	return isChanged;
-}
-
-bool ActOnFileMod(File_t * first, File_t * second)
-{
-	File_t *c = second;
-	bool isChanged = false;
-
-	while (c)
-	{
-		File_t *exists = FileExists(first, c->path);
-		if (exists)
-		{
-			if (c->mtime != exists->mtime)
-			{
-				printf("mod file %s\n", c->path);
-				HTTP_Post_File(c->path);
-				isChanged = true;
-			}
-		}
-
-		c = c->next;
-	}
-
-	return isChanged;
-}
-
-bool ActOnFileAdd(File_t * first, File_t * second)
-{
-	File_t *f = second;
-	bool isChanged = false;
-
-	while (f)
-	{
-		File_t *exists = FileExists(first, f->path);
-		if (!exists)
-		{
-			printf("add file %s\n", f->path);
-			HTTP_Post_File(f->path);
-			isChanged = true;
-		}
-
-		f = f->next;
-	}
-
-	return isChanged;
-}
-
-#define STATE_FILE_FORMAT "%s %u %u %u"
+#define STATE_FILE_FORMAT "%s\t%u\t%u\t%u"
 #define DROP_CONFIG_DIRECTORY ".drop"
 #define DROP_CONFIG_FILE "drop.cfg"
 #define DROP_STATE_FILE "state"
@@ -507,11 +536,84 @@ void SaveFileState(File_t * list)
 		fprintf(f, STATE_FILE_FORMAT, c->path, (unsigned int)c->size,
 			(unsigned int)c->mode, (unsigned int)c->mtime);
 		fprintf(f, "\n");
-
+		
+		c->changed = 0; // reset
 		c = c->next;
 	}
 
 	fclose(f);
+}
+
+// This is slightly bogus but it does work...
+bool GetStateFileValues(char *text, char *buf, int *size, int *mode, int *ctime)
+{
+	const char delim[] = "\t\0";
+	
+	char *ptr = strtok(text, delim);
+	if (ptr)
+	{
+		snprintf(buf, PATH_MAX, "%s", ptr);
+		ptr = strtok(NULL, delim);
+		if (ptr)
+		{
+			*size = atoi(ptr);
+			ptr = strtok(NULL, delim);
+			if (ptr)
+			{
+				*mode = atoi(ptr);
+				ptr = strtok(NULL, delim);
+				if (ptr)
+				{
+					*ctime = atoi(ptr);
+					return true;
+				
+				}
+			}
+		}
+	}
+	
+	return false;	
+}
+
+File_t *ListFromStateFile(const char *state_file_path)
+{
+	FILE *f = fopen(state_file_path, "r");
+	if (f == NULL)
+	{
+		Error("ListFromStateFile: %s", state_file_path);
+	}
+
+	char path[PATH_MAX] = { 0 };
+	
+	File_t *list = calloc(1, sizeof(File_t));
+	if (list == NULL)
+	{
+		Error("ListFromStateFile: calloc");
+	}
+
+	char line[1024] = { 0 };
+	while ((fgets(line, sizeof(line), f)) != NULL)
+	{
+		Trim(line);
+		
+		/*int result = sscanf(line, STATE_FILE_FORMAT, path, &s, &m, &t);
+		if (result == 4)
+		{
+			
+			FileListAdd(list, path, s, m, t);
+		}
+		*/
+		int mtime, size, mode;
+		bool status = GetStateFileValues(line, path, &size, &mode, &mtime);
+		if (status)
+		{
+			FileListAdd(list, path, size, mode, mtime);
+		}
+	}
+
+	fclose(f);
+
+	return list;
 }
 
 #define COMMAND_MAX 2048
@@ -524,30 +626,131 @@ struct config_t
 	char ssh_string[COMMAND_MAX];
 };
 
+void ProcessChangedFiles(File_t *chunks, int max)
+{
+	for (int i = 0; i < max; i++)
+	{
+		File_t file = chunks[i];
+		if (file.changed)
+		{
+			switch (file.changed)
+			{
+				case FILE_ADD:
+					printf("add remote file %s\n", file.path);
+					RemoteFileAdd(file.path);
+				break;
+			
+				case FILE_MOD:
+					printf("mod remote file %s\n", file.path);
+					RemoteFileAdd(file.path);
+				break;
+			
+				case FILE_DEL:
+					printf("del remote file %s\n", file.path);
+					RemoteFileDel(file.path);
+				break;
+			}
+		}
+	}
+}
+
+#include <sys/wait.h>
+
 void CompareFileLists(File_t * first, File_t * second)
 {
 	bool store_state = false;
-	bool modifications = false;
-
-	modifications = ActOnFileAdd(first, second);
+	int modifications = 0;
+	
+	
+	modifications += ActOnFileAdd(first, second);
+	modifications += ActOnFileDel(first, second);
+	modifications += ActOnFileMod(first, second);
+	
 	if (modifications)
 	{
+		File_t files[modifications];
+		memset(files, 0, sizeof(File_t) * modifications);
+		int i = 0;
+		
+		File_t *cursor = first->next;
+		while (cursor)
+		{
+			if (cursor->changed)
+			{
+				memcpy(&files[i], cursor, sizeof(File_t));
+				i++;
+			}
+			cursor = cursor->next;
+			//printf("total of %d changes\n\n", modifications);
+		}
+		
+		cursor = second->next;
+		while (cursor)
+		{
+			if (cursor->changed)
+			{
+				memcpy(&files[i], cursor, sizeof(File_t));
+				//printf("here here here %s\n", files[i].path);
+				i++;
+			}
+			cursor = cursor->next; //oops!
+		}
+
 		store_state = true;
+
+		int total_files = modifications;
+		int chunk_size = total_files / parallel_max;
+		int remainder = total_files % parallel_max;
+		
+		File_t chunks[parallel_max][chunk_size];
+		memset(chunks, 0, parallel_max * chunk_size * sizeof(File_t));
+		
+		int index = 0;
+		int y = 0;
+		
+		for (int i = 0; i < parallel_max; i++)
+		{
+			for (y = 0; y < chunk_size; y++)
+			{
+				chunks[i][y] = files[index++];
+			}
+		}
+		
+		for (int i = 0; i < remainder; i++)
+		{
+			chunks[parallel_max -1][y++] = files[index++];
+		}
+	        
+		
+		// INSANNITY!!!!
+		pid_t pids[parallel_max];
+		memset(&pids, 0, parallel_max * sizeof(pid_t));
+		for (int i = 0; i < parallel_max; i++)
+		{
+			pid_t pid = fork();
+			if (pid == 0)
+			{
+				if (i == parallel_max - 1 )
+				{
+					chunk_size += remainder;
+				}
+				ProcessChangedFiles(chunks[i], chunk_size);
+				exit(0);
+			} else {
+				pids[i] = pid;
+			}
+		}
+		
+		for (int i = 0; i < parallel_max; i++)
+		{
+			waitpid(pids[i], NULL, 0);
+		}
+		
+		printf("we're done!\n\n");
 	}
 
-	modifications = ActOnFileDel(first, second);
-	if (modifications)
-	{
-		store_state = true;
-	}
-
-	modifications = ActOnFileMod(first, second);
-	if (modifications)
-	{
-		store_state = true;
-	}
-
-	// this s/is/was bullshit jeremy!
+	
+	
 	if (store_state)
 	{
 		SaveFileState(second);
@@ -562,60 +765,6 @@ void Prepare(void)
 	if (stat(DROP_CONFIG_DIRECTORY, &fstats) < 0)
 	{
 		mkdir(DROP_CONFIG_DIRECTORY, 0777);
-	}
-
-	if (!S_ISDIR(fstats.st_mode))
-	{
-		Error("%s is not a directory", DROP_CONFIG_DIRECTORY);
-	}
-}
-
-
-File_t *ListFromStateFile(const char *state_file_path)
-{
-	FILE *f = fopen(state_file_path, "r");
-	if (f == NULL)
-	{
-		Error("ListFromStateFile: %s", state_file_path);
-	}
-
-	char path[PATH_MAX] = { 0 };
-	unsigned int s, m, t;
-
-	File_t *list = calloc(1, sizeof(File_t));
-	if (list == NULL)
-	{
-		Error("ListFromStateFile: calloc");
-	}
-
-	char line[1024] = { 0 };
-	while ((fgets(line, sizeof(line), f)) != NULL)
-	{
-		Trim(line);
-		int result = sscanf(line, STATE_FILE_FORMAT, path, &s, &m, &t);
-		if (result == 4)
-		{
-			FileListAdd(list, path, s, m, t);
-		}
-		memset(line, 0, sizeof(line));
-	}
-
-	fclose(f);
-
-	return list;
-}
-
-void WindowsSanifyPath(char *path)
-{
-	char *p = path;
-
-	while (*p)
-	{
-		if (*p == '\\')
-		{
-			*p = '/';
-		}
-		p++;
 	}
 }
 
@@ -655,8 +804,8 @@ unsigned int changes_interval = 3;
 void MonitorPath(char *path)
 {
 	File_t *file_list_one = FirstRun(path);	// FilesInDirectory(path); 
-	printf("watching: %s\n", path);
-	printf("syncing: http://%s/%s\n", REMOTE_HOST, user);
+	printf("watching locally: %s\n", path);
+	printf("syncing remotely: http://%s/%s\n", REMOTE_HOST, username);
 
 	for (;;)
 	{
@@ -729,8 +878,9 @@ void ConfigCheck(config_t config)
 
 config_t *ConfigLoad(void)
 {
+	return NULL; // don't need this for now!
 	config_t *config = calloc(1, sizeof(config_t));
-
+	
 	char config_file_path[PATH_MAX] = { 0 };
 
 	snprintf(config_file_path, PATH_MAX, "%s%c%s", DROP_CONFIG_DIRECTORY,
@@ -780,7 +930,7 @@ config_t *ConfigLoad(void)
 			     sizeof(config->ssh_string));
 	if (!result)
 	{
-		// Could check config on missing option basis...
+		return NULL;// Could check config on missing option basis...
 	}
 
 	// Check the configuration file generically 
@@ -796,13 +946,14 @@ void About(void)
 
 void AboutRemoteURL(void)
 {
-	printf("Remote URL http://%s/%s\n", REMOTE_HOST, user);
+	printf("Remote URL http://%s/%s\n", REMOTE_HOST, username);
 }
 
 void Version(void)
 {
 	About();
 	printf("Drop version 0.0.2a\n");
+	printf("Maximum concurrancy %d\n", parallel_max);
 }
 
 void Usage(void)
@@ -821,12 +972,16 @@ int main(int argc, char **argv)
 	// weird hack...
 	stdout = stderr;
 
-	directory = argv[1];
-	user = argv[2];
-	pass = argv[3];
-
 	Prepare();
 
+	config_t *Configuration = ConfigLoad();
+	if (Configuration == NULL)
+	{
+		directory = argv[1];
+		username  = argv[2];
+		password  = argv[3];
+	}
+	
 	Version();
 
 	MonitorPath(directory);
