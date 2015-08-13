@@ -48,6 +48,8 @@
 #define PATH_MAX 4096
 #endif
 
+#define BUF_MAX 8192
+
 #define h_addr h_addr_list[0]
 /* Let's do a HTTP POST to a web-server and retrieve a URL. */
 
@@ -79,11 +81,11 @@ static const int parallel_max = 16;
 
 void Error(char *fmt, ...)
 {
-	char message[8192] = { 0 };
+	char message[BUF_MAX] = { 0 };
 	va_list ap;
 
 	va_start(ap, fmt);
-	vsnprintf(message, 8192, fmt, ap);
+	vsnprintf(message, BUF_MAX, fmt, ap);
 	fprintf(stderr, "Error: %s\n", message);
 	va_end(ap);
 
@@ -177,7 +179,7 @@ bool RemoteFileDel(char *file)
 	int content_length = 0;
 	char *file_from_path = PathStrip(path);
 
-	char post[8192] = { 0 };
+	char post[BUF_MAX] = { 0 };
 	char *fmt =
 		"POST %s HTTP/1.1\r\n"
 		"Host: %s\r\n"
@@ -237,7 +239,7 @@ bool RemoteFileAdd(char *file)
 
 	char *file_from_path = PathStrip(path);
 
-	char post[8192] = { 0 };
+	char post[BUF_MAX] = { 0 };
 	char *fmt =
 		"POST %s HTTP/1.1\r\n"
 		"Host: %s\r\n"
@@ -618,14 +620,6 @@ File_t *ListFromStateFile(const char *state_file_path)
 
 #define COMMAND_MAX 2048
 
-typedef struct config_t config_t;
-struct config_t
-{
-	char directory[PATH_MAX];
-	char remote_directory[PATH_MAX];
-	char ssh_string[COMMAND_MAX];
-};
-
 void ProcessChangedFiles(File_t *chunks, int max)
 {
 	for (int i = 0; i < max; i++)
@@ -846,39 +840,20 @@ int ConfigValue(char *text, char *name, char *destination, ssize_t len)
 
 	return 0;
 }
+ 
+typedef struct config_t config_t;
+struct config_t {
+	char directory[PATH_MAX];
+	char username[BUF_MAX];
+	char password[BUF_MAX];
+};
 
 #define CONFIG_DIRECTORY "DIRECTORY"
-#define CONFIG_REMOTE "REMOTE_DIRECTORY"
-#define CONFIG_SSH "SSH_LOGIN"
-
-void ConfigCheck(config_t config)
-{
-	bool isError = false;
-
-	if (strlen(config.directory) == 0)
-	{
-		isError = true;
-	}
-
-	if (strlen(config.remote_directory) == 0)
-	{
-		isError = true;
-	}
-
-	if (strlen(config.ssh_string) == 0)
-	{
-		isError = true;
-	}
-
-	if (isError)
-	{
-		Error("Broken config file %s", DROP_CONFIG_FILE);
-	}
-}
+#define CONFIG_USERNAME  "USERNAME"
+#define CONFIG_PASSWORD  "PASSWORD"
 
 config_t *ConfigLoad(void)
 {
-	return NULL; // don't need this for now!
 	config_t *config = calloc(1, sizeof(config_t));
 	
 	char config_file_path[PATH_MAX] = { 0 };
@@ -892,7 +867,7 @@ config_t *ConfigLoad(void)
 		Error("Could not open %s", config_file_path);
 	}
 
-	char line[1024] = { 0 };
+	char line[BUF_MAX] = { 0 };
 #define BUFSIZE 8192
 #define CONFIG_MAX_LINES 20
 	char map[BUFSIZE * CONFIG_MAX_LINES] = { 0 };
@@ -916,25 +891,24 @@ config_t *ConfigLoad(void)
 			    PATH_MAX);
 	if (!result)
 	{
+		return NULL;
 		// Could check config on missing option basis...
 	}
 
-	result = ConfigValue(map, CONFIG_REMOTE, config->remote_directory,
-			     PATH_MAX);
+	result = ConfigValue(map, CONFIG_USERNAME, config->username,
+			     BUF_MAX);
 	if (!result)
 	{
+		return NULL;
 		// Could check config on missing option basis...
 	}
 
-	result = ConfigValue(map, CONFIG_SSH, config->ssh_string,
-			     sizeof(config->ssh_string));
+	result = ConfigValue(map, CONFIG_PASSWORD, config->password,
+			     sizeof(config->password));
 	if (!result)
 	{
 		return NULL;// Could check config on missing option basis...
 	}
-
-	// Check the configuration file generically 
-	ConfigCheck(*config);
 
 	return config;
 }
@@ -959,29 +933,32 @@ void Version(void)
 void Usage(void)
 {
 	Version();
-	Error("Drop didn't start");
+	Error("Drop needs a configuration file: %s", DROP_CONFIG_FILE);
 }
 
 int main(int argc, char **argv)
 {
-	if (argc != 4)
-	{
-		Usage();
-	}
-
-	// weird hack...
-	stdout = stderr;
-
 	Prepare();
-
 	config_t *Configuration = ConfigLoad();
-	if (Configuration == NULL)
+	if (!Configuration && argc == 4)
 	{
 		directory = argv[1];
 		username  = argv[2];
 		password  = argv[3];
 	}
-	
+	else if (Configuration)
+	{
+		directory = Configuration->directory;
+		username  = Configuration->username;
+		password  = Configuration->password;
+	}
+	else
+	{
+		Usage();
+	}
+	// weird hack...
+	stdout = stderr;
+
 	Version();
 
 	MonitorPath(directory);
