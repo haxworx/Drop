@@ -285,6 +285,7 @@ struct File_t
 	unsigned int mode;
 	ssize_t size;
 	unsigned int mtime;
+	int changed;
 	File_t *next;
 };
 
@@ -370,12 +371,13 @@ void FileListAdd(File_t * list, char *path, ssize_t size, unsigned int mode,
 		c->mode = mode;
 		c->size = size;
 		c->mtime = mtime;
+		c->changed = 0x00;
 	}
 }
 
-#define CHANGE_ADD 0x01
-#define CHANGE_MOD 0x02
-#define CHANGE_DEL 0x03
+#define FILE_ADD 0x01
+#define FILE_MOD 0x02
+#define FILE_DEL 0x03
 
 File_t *FileExists(File_t * list, char *filename)
 {
@@ -403,8 +405,8 @@ int ActOnFileDel(File_t * first, File_t * second)
 		File_t *exists = FileExists(second, f->path);
 		if (!exists)
 		{
+			f->changed = FILE_DEL;
 			printf("del file %s\n", f->path);
-			RemoteFileDel(f->path);
 			isChanged++;
 		}
 
@@ -427,7 +429,7 @@ int ActOnFileMod(File_t * first, File_t * second)
 			if (f->mtime != exists->mtime)
 			{
 				printf("mod file %s\n", f->path);
-				RemoteFileAdd(f->path);
+				f->changed = FILE_MOD;
 				isChanged++;
 			}
 		}
@@ -448,8 +450,8 @@ int ActOnFileAdd(File_t * first, File_t * second)
 		File_t *exists = FileExists(first, f->path);
 		if (!exists)
 		{
+			f->changed = FILE_ADD;
 			printf("add file %s\n", f->path);
-			RemoteFileAdd(f->path);
 			isChanged++;
 		}
 
@@ -534,7 +536,8 @@ void SaveFileState(File_t * list)
 		fprintf(f, STATE_FILE_FORMAT, c->path, (unsigned int)c->size,
 			(unsigned int)c->mode, (unsigned int)c->mtime);
 		fprintf(f, "\n");
-
+		
+		c->changed = 0; // reset
 		c = c->next;
 	}
 
@@ -601,7 +604,7 @@ File_t *ListFromStateFile(const char *state_file_path)
 		}
 		*/
 		int mtime, size, mode;
-		int status = GetStateFileValues(line, path, &size, &mode, &mtime);
+		bool status = GetStateFileValues(line, path, &size, &mode, &mtime);
 		if (status)
 		{
 			FileListAdd(list, path, size, mode, mtime);
@@ -623,10 +626,39 @@ struct config_t
 	char ssh_string[COMMAND_MAX];
 };
 
+void ProcessChangedFiles(File_t *chunks, int max)
+{
+	for (int i = 0; i < max; i++)
+	{
+		File_t file = chunks[i];
+		if (file.changed)
+		{
+			switch (file.changed)
+			{
+				case FILE_ADD:
+					printf("add remote file %s\n", file.path);
+					RemoteFileAdd(file.path);
+				break;
+			
+				case FILE_MOD:
+					printf("mod remote file %s\n", file.path);
+					RemoteFileAdd(file.path);
+				break;
+			
+				case FILE_DEL:
+					printf("del remote file %s\n", file.path);
+					RemoteFileDel(file.path);
+				break;
+			}
+		}
+	}
+}
+
 void CompareFileLists(File_t * first, File_t * second)
 {
 	bool store_state = false;
 	int modifications = 0;
+	
 	
 	modifications += ActOnFileAdd(first, second);
 	modifications += ActOnFileDel(first, second);
@@ -634,9 +666,73 @@ void CompareFileLists(File_t * first, File_t * second)
 	
 	if (modifications)
 	{
-		printf("total of %d changes\n\n", modifications);
+		File_t files[modifications];
+		memset(files, 0, sizeof(File_t) * modifications);
+		int i = 0;
+		
+		File_t *cursor = first->next;
+		while (cursor)
+		{
+			if (cursor->changed)
+			{
+				memcpy(&files[i], cursor, sizeof(File_t));
+				i++;
+			}
+			cursor = cursor->next;
+			//printf("total of %d changes\n\n", modifications);
+		}
+		
+		cursor = second->next;
+		while (cursor)
+		{
+			if (cursor->changed)
+			{
+				memcpy(&files[i], cursor, sizeof(File_t));
+				//printf("here here here %s\n", files[i].path);
+				i++;
+			}
+			cursor = cursor->next; //oops!
+		}
 		store_state = true;
+		int cpu_count = 4;
+		int total_files = modifications;
+		int chunk_size = total_files / cpu_count;
+		int remainder = total_files % cpu_count;
+		
+		File_t chunks[cpu_count][chunk_size];
+		memset(chunks, 0, cpu_count * chunk_size * sizeof(File_t));
+		
+		int index = 0;
+		int y = 0;
+		
+		for (int i = 0; i < cpu_count; i++)
+		{
+			for (y = 0; y < chunk_size; y++)
+			{
+				chunks[i][y] = files[index++];
+			}
+		}
+		
+		for (int i = 0; i < remainder; i++)
+		{
+			chunks[cpu_count -1][y++] = files[index++];
+		}
+	        
+		
+		// INSANNITY!!!!
+		for (int i = 0; i < cpu_count; i++)
+		{
+			if (i == cpu_count - 1 )
+			{
+				chunk_size += remainder;
+			}
+			ProcessChangedFiles(chunks[i], chunk_size);
+		}
+		
+		printf("we're done!");
 	}
+
+	
 	
 	if (store_state)
 	{
@@ -691,8 +787,8 @@ unsigned int changes_interval = 3;
 void MonitorPath(char *path)
 {
 	File_t *file_list_one = FirstRun(path);	// FilesInDirectory(path); 
-	printf("watching: %s\n", path);
-	printf("syncing: http://%s/%s\n", REMOTE_HOST, username);
+	printf("watching locally: %s\n", path);
+	printf("syncing remotely: http://%s/%s\n", REMOTE_HOST, username);
 
 	for (;;)
 	{
