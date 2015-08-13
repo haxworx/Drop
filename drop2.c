@@ -74,7 +74,7 @@ bool debugging = false;
 char *directory = NULL;
 const char *username = NULL;
 const char *password = NULL;
-
+static const int parallel_max = 16;
 
 
 void Error(char *fmt, ...)
@@ -654,6 +654,8 @@ void ProcessChangedFiles(File_t *chunks, int max)
 	}
 }
 
+#include <sys/wait.h>
+
 void CompareFileLists(File_t * first, File_t * second)
 {
 	bool store_state = false;
@@ -693,19 +695,20 @@ void CompareFileLists(File_t * first, File_t * second)
 			}
 			cursor = cursor->next; //oops!
 		}
+
 		store_state = true;
-		int cpu_count = 4;
+
 		int total_files = modifications;
-		int chunk_size = total_files / cpu_count;
-		int remainder = total_files % cpu_count;
+		int chunk_size = total_files / parallel_max;
+		int remainder = total_files % parallel_max;
 		
-		File_t chunks[cpu_count][chunk_size];
-		memset(chunks, 0, cpu_count * chunk_size * sizeof(File_t));
+		File_t chunks[parallel_max][chunk_size];
+		memset(chunks, 0, parallel_max * chunk_size * sizeof(File_t));
 		
 		int index = 0;
 		int y = 0;
 		
-		for (int i = 0; i < cpu_count; i++)
+		for (int i = 0; i < parallel_max; i++)
 		{
 			for (y = 0; y < chunk_size; y++)
 			{
@@ -715,21 +718,35 @@ void CompareFileLists(File_t * first, File_t * second)
 		
 		for (int i = 0; i < remainder; i++)
 		{
-			chunks[cpu_count -1][y++] = files[index++];
+			chunks[parallel_max -1][y++] = files[index++];
 		}
 	        
 		
 		// INSANNITY!!!!
-		for (int i = 0; i < cpu_count; i++)
+		pid_t pids[parallel_max];
+		memset(&pids, 0, parallel_max * sizeof(pid_t));
+		for (int i = 0; i < parallel_max; i++)
 		{
-			if (i == cpu_count - 1 )
+			pid_t pid = fork();
+			if (pid == 0)
 			{
-				chunk_size += remainder;
+				if (i == parallel_max - 1 )
+				{
+					chunk_size += remainder;
+				}
+				ProcessChangedFiles(chunks[i], chunk_size);
+				exit(0);
+			} else {
+				pids[i] = pid;
 			}
-			ProcessChangedFiles(chunks[i], chunk_size);
 		}
 		
-		printf("we're done!");
+		for (int i = 0; i < parallel_max; i++)
+		{
+			waitpid(pids[i], NULL, 0);
+		}
+		
+		printf("we're done!\n\n");
 	}
 
 	
@@ -935,6 +952,7 @@ void Version(void)
 {
 	About();
 	printf("Drop version 0.0.2a\n");
+	printf("Maximum concurrancy %d\n", parallel_max);
 }
 
 void Usage(void)
