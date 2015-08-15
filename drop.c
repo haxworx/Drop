@@ -1,4 +1,5 @@
 /* 
+
    Copyright (c) 2015, Al Poole <netstar@gmail.com> All rights reserved.
 
    Redistribution and use in source and binary forms, with or without
@@ -28,7 +29,7 @@
    over the years!
 */
 #define PROGRAM_NAME "drop"
-#define PROGRAM_VERSION "0.2.0"
+#define PROGRAM_VERSION "0.4.0 [ENTERPRISE]"
 
 #define _BSD_SOURCE 0x0001
 #include <stdio.h>
@@ -46,6 +47,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif
@@ -80,6 +82,7 @@ char *hostname = NULL;
 const char *username = NULL;
 const char *password = NULL;
 static const int parallel_max = 16;
+unsigned int zip_sleep_interval = 60;
 
 
 void Error(char *fmt, ...)
@@ -469,6 +472,107 @@ int ActOnFileAdd(File_t * first, File_t * second)
 	return isChanged;
 }
 
+void RemoveDirectory(char *path)
+{
+	DIR *d = NULL;
+	struct dirent *dirent = NULL;
+	int i = 0;
+
+	char *directories[8192] = { NULL }; 	
+
+	d = opendir(path);
+	if (d == NULL)
+	{
+		Error("opendir()");	
+	}
+
+	while ((dirent = readdir(d)) != NULL)
+	{
+		char full_path[PATH_MAX] = { 0 };
+		snprintf(full_path, sizeof(full_path), "%s%c%s", path, SLASH, dirent->d_name);
+		if (!strcmp(dirent->d_name, ".") || !strcmp(dirent->d_name, "..") )
+		{
+			continue;
+		}
+		struct stat fs;
+		stat (full_path, &fs);
+
+		if (S_ISDIR(fs.st_mode))
+		{
+			directories[i++] = strdup(full_path);
+		} 
+		else
+		{
+			unlink(full_path);
+		}
+	}
+
+	i = 0;
+	while (directories[i] != NULL)
+	{
+		RemoveDirectory(directories[i]);
+		rmdir(directories[i]);
+		free(directories[i++]);
+	}
+	rmdir(path);
+
+	closedir(d);
+}
+
+bool CreateZipFile(char *path)
+{
+	char zip_file_path[PATH_MAX] = { 0 };
+	snprintf(zip_file_path, sizeof(zip_file_path), "%s.zip", path);
+
+	char *args[5] = { 0 };
+	
+	char *vbscript =
+	"ArchiveFolder Wscript.Arguments.Item(0), Wscript.Arguments.Item(1)\r\n"
+	"Sub ArchiveFolder (zipFile, sFolder)\r\n"
+	"With CreateObject(\"Scripting.FileSystemObject\")\r\n"
+        "zipFile = .GetAbsolutePathName(zipFile)\r\n"
+        "sFolder = .GetAbsolutePathName(sFolder)\r\n"
+	"	With .CreateTextFile(zipFile, True)\r\n"
+        "		.Write Chr(80) & Chr(75) & Chr(5) & Chr(6) & String(18, chr(0))\r\n"
+        "	End With\r\n"
+	"End With\r\n"
+	"With CreateObject(\"Shell.Application\")\r\n"
+	"	.NameSpace(zipFile).CopyHere .NameSpace(sFolder).Items\r\n"
+	"	Do Until .NameSpace(zipFile).Items.Count = _\r\n"
+        "		.NameSpace(sFolder).Items.Count\r\n"
+	"	WScript.Sleep 1000\r\n"
+        "	Loop\r\n"
+	"End With\r\n"
+	"End Sub\r\n";
+	
+	#define VBSCRIPT_PATH "zip.vbs"
+	
+	FILE *f = fopen(VBSCRIPT_PATH, "w");
+	fprintf(f, "%s", vbscript);
+	fclose(f);
+	
+	chmod(VBSCRIPT_PATH, 0755);
+
+	args[0] = "cscript";
+	args[1] = VBSCRIPT_PATH;
+	args[2] = zip_file_path;
+	args[3] = path;
+	args[4] = NULL;
+	pid_t p = fork();
+	if (p < 0)
+		Error("fork");
+	else if (p == 0)
+	{
+		execvp(args[0], args);
+		unlink(VBSCRIPT_PATH);
+		exit(1);
+	}
+	
+	p = wait(NULL);
+	RemoveDirectory(path);
+
+	return true;
+}
 
 #include <errno.h>
 
@@ -498,13 +602,13 @@ File_t *FilesInDirectory(const char *path)
 		char path_full[PATH_MAX] = { 0 };
 		snprintf(path_full, PATH_MAX, "%s%c%s", path, SLASH,
 			 dirent->d_name);
-
 		struct stat fs;
 		stat(path_full, &fs);
 
 		if (S_ISDIR(fs.st_mode))
 		{
-			continue;
+			sleep(zip_sleep_interval);
+			CreateZipFile(path_full);		
 		}
 		else
 		{
@@ -519,7 +623,7 @@ File_t *FilesInDirectory(const char *path)
 }
 
 #define STATE_FILE_FORMAT "%s\t%u\t%u\t%u"
-#define DROP_CONFIG_DIRECTORY ".drop"
+#define DROP_CONFIG_DIRECTORY "DROP_CONFIGURATION"
 #define DROP_CONFIG_FILE "drop.cfg"
 #define DROP_STATE_FILE "state"
 
@@ -791,6 +895,7 @@ File_t *FirstRun(char *path)
 unsigned int changes_interval = 2;
 // 2 seconds like our old friend arcs :-)
 
+
 void MonitorPath(char *path)
 {
 	File_t *file_list_one = FirstRun(path);	// FilesInDirectory(path); 
@@ -881,7 +986,7 @@ config_t *ConfigLoad(void)
 		strlcat(map, line, sizeof(map));
 		++line_count;
 	}
-
+	
 	fclose(f);
 
 	int result =
