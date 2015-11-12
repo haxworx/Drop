@@ -192,7 +192,7 @@ BIO *Connect_SSL(char *hostname, int port)
 
 int Connect(char *hostname, int port)
 {
-	#ifdef __OpenBSD__
+	#ifdef __Unix__
 	if (use_https_ssl)
 	{
 		Connect_SSL(hostname, port);
@@ -234,7 +234,7 @@ int Connect(char *hostname, int port)
 
 ssize_t Read(int sock, char *buf, int len)
 {
-#ifdef __OpenBSD__
+#ifdef __Unix__
 	if (use_https_ssl)
 	{
 		return BIO_read(bio, buf, len);
@@ -251,7 +251,7 @@ ssize_t Write(int sock, char *buf, int len)
 	{
 		printf("%s", buf);
 	}
-#ifdef __OpenBSD__
+#ifdef __Unix__
 	if (use_https_ssl)
 	{
 		bytes = BIO_write(bio, buf, len);
@@ -265,7 +265,7 @@ ssize_t Write(int sock, char *buf, int len)
 
 int Close(int sock)
 {
-#ifdef __OpenBSD__
+#ifdef __Unix__
 	if (use_https_ssl)
 	{
 		BIO_free_all(bio); bio = NULL;
