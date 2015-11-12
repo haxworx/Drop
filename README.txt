@@ -37,7 +37,7 @@
    
    *  As of version 0.8.0.0 our server uses node.js.
 
-   *  As of version 0.8.0.0 we revert to Simplified BSD License.
+   *  As of version 0.8.0.0 we revert to 2-clause BSD License.
 
    *  As of version 0.6.10.0 we do parallel tasks better!
 
@@ -62,7 +62,7 @@
 
    We accept donations of cash, food, beer and computer equipment!
 
-   No seagulls were harmed during the production of SanctoShare.
+   No seagulls were harmed during the production of Drop!
 
 
    SALUTATION
