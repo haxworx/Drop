@@ -7,7 +7,7 @@ LIBS=-lssl -lcrypto
 default:
 	gcc $(CFLAGS) $(SOURCE) $(LIBS) -o $(EXEC)
 windows:
-	gcc $(CFLAGS) -D__Windows__ $(SOURCE) -o $(EXEC)
+	gcc $(CFLAGS) -D__WINDOWS__ $(SOURCE) -o $(EXEC)
 install:
 	cp $(EXEC) $(INSTALL_DIR)
 
