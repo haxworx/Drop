@@ -1,13 +1,20 @@
-SOURCE=drop.c
+SOURCE=src/drop.c
 INSTALL_DIR=/usr/local/bin
 CFLAGS=-std=c99 -Wall -Werror -pedantic 
 EXEC=drop
-OPTIONS=
-HAIKU=-lnetwork
-WINDOWS=-DWINDOWS -static
+LIBS=-lssl -lcrypto 
 
 default:
-	gcc $(CFLAGS) $(OPTIONS) $(WINDOWS) $(SOURCE) -o $(EXEC)
+	gcc $(CFLAGS) $(SOURCE) $(LIBS) -o $(EXEC)
+
+windows:
+	gcc -static $(CFLAGS) $(SOURCE) -o $(EXEC)
+install:
+	cp $(EXEC) $(INSTALL_DIR)
 
 clean:
 	rm $(EXEC)
+
+uninstall:
+	make clean
+	-rm /usr/local/bin/$(EXEC)
