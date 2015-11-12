@@ -50,7 +50,7 @@
 #define PATH_MAX 4096
 #endif
 
-#ifdef __OpenBSD__
+#ifndef __WINDOWS__
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -74,6 +74,8 @@ size_t strlcat(char *d, char const *s, size_t n)
 }
 #endif
 
+#ifndef __WINDOWS__
+
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
@@ -83,8 +85,13 @@ key_t key;
 int shmid;
 char *connection_broken = NULL;
 
+#endif 
+
 int check_connection(void)
 {
+#ifdef __WINDOWS__
+	return 0;
+#else
         if (*connection_broken) {
                 fprintf(stderr, "we had to abort! server is running???\n\n");
                 shmdt(connection_broken);
@@ -92,6 +99,7 @@ int check_connection(void)
         }
 	
 	return (int) *connection_broken;
+#endif
 }
 
 bool debugging = false;
@@ -125,7 +133,7 @@ void Error(char *fmt, ...)
 
 void init_ssl(void)
 {
-	#ifdef __OpenBSD__
+	#ifndef __WINDOWS__
 	SSL_load_error_strings();
 	ERR_load_BIO_strings();
 	OpenSSL_add_all_algorithms();
@@ -148,7 +156,7 @@ char *file_name_from_path(char *path)
 	return path;
 }
 
-#ifdef __OpenBSD__
+#ifndef __WINDOWS__
 BIO *bio = NULL;
 
 BIO *Connect_SSL(char *hostname, int port)
@@ -1001,7 +1009,9 @@ void start_job(File_t *object)
 	{
 		bool status = process_object(object);
 		if (!status) {
+		#ifndef __WINDOWS__
 			*connection_broken = 1;
+		#endif
 		}
 		exit(1);
 	}
@@ -1063,10 +1073,16 @@ void compare_file_lists(File_t * first, File_t * second)
 		printf("done!\n\n");
 	}
 
+	#ifndef __WINDOWS__
 	if ((!*connection_broken) && (new_repository || store_state))
 	{
 		save_file_list_state(second);
 	}
+	#else
+	if (new_repository || store_state) {
+		save_file_list_state(second);
+	}
+	#endif
 }
 
 
@@ -1280,8 +1296,9 @@ void get_ready(void)
 {
 	char program_folder[PATH_MAX] = { 0 };
 
+#ifndef __WINDOWS__ 
 	pid_t pid = getpid();
-	
+
 	key = (int) pid;
 
 	shmid = shmget(key, SHM_SIZE, 0644 | IPC_CREAT);
@@ -1297,7 +1314,7 @@ void get_ready(void)
 	}
 
 	*connection_broken = 0; // all okay
-
+#endif
 	char *user_home = getenv("HOME");
 	if (user_home == NULL)
 	{

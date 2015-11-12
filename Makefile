@@ -8,7 +8,7 @@ default:
 	gcc $(CFLAGS) $(SOURCE) $(LIBS) -o $(EXEC)
 
 windows:
-	gcc -static $(CFLAGS) $(SOURCE) -o $(EXEC)
+	gcc -static $(CFLAGS) -DWINDOWS $(SOURCE) -o $(EXEC)
 install:
 	cp $(EXEC) $(INSTALL_DIR)
 
