@@ -1,5 +1,5 @@
 /* 
-  Copyright (c) 2015, Al Poole <netstar@gmail.com>
+  Copyright (c) 2015-16, Al Poole <netstar@gmail.com>
   All rights reserved.
 
   Redistribution and use in source and binary forms, with or without
@@ -1364,7 +1364,7 @@ void get_ready(void)
 
 void about(void)
 {
-	printf("Copyright (c) 2015. Al Poole <netstar@gmail.com>\n");
+	printf("Copyright (c) 2015-16. Al Poole <netstar@gmail.com>\n");
 }
 
 void show_version(void)
@@ -1458,17 +1458,16 @@ void demonology(char *directory)
 	if (stat(session_file, &fstat) >= 0)
 		Error("program already running!");
 
+	printf("going into the etherworld...\n");
 	pid_t pid = fork();
-	if (pid > 0) 
-		exit(EXIT_SUCCESS);
 	if (pid < 0)
-		exit(EXIT_FAILURE);
-	if (pid == 0) {
-		chdir(directory);
+		Error("fork: %s\n", strerror(errno));
+	else if (pid == 0) {
 		touch(session_file);
-		close(STDIN_FILENO);
 		close(STDOUT_FILENO);
 		close(STDERR_FILENO);
+	} else {
+		exit(EXIT_SUCCESS);
 	}
 }
 
