@@ -27,7 +27,7 @@
 */
 
 #define PROGRAM_NAME "drop"
-#define PROGRAM_VERSION "0.2.2.2 \"Saint Eusebius\""
+#define PROGRAM_VERSION "0.2.4.0 \"Saint Paul the Hermit\""
 
 #define _DEFAULT_SOURCE 1
 #include <stdio.h>
@@ -102,6 +102,7 @@ int check_connection(void)
 #endif
 }
 
+char session_file[PATH_MAX] = { 0 };
 bool debugging = false;
 int run_once = 1;
 char *directory = NULL;
@@ -1376,6 +1377,7 @@ void show_usage(void)
 	printf("%s [OPTIONS] username@host:/path/to/dir\n", PROGRAM_NAME);
 	printf("OPTIONS:\n");
 	printf("    -l    loop forever\n");
+	printf("    -d    daemonise\n");
 	exit(EXIT_FAILURE);
 }
 
@@ -1413,8 +1415,58 @@ void get_user_host_rsrc(char *cmd)
 	directory = strdup(rsrc);
 }
 
+void touch(char *path)
+{
+	printf("path is %s\n", path);
+	FILE *f = fopen(path, "w");
+	if (f == NULL)
+		Error("fopen: %s %s\n", path, strerror(errno));
+
+	fclose(f);
+}
+
+
+void demonology(char *directory)
+{
+	snprintf(session_file, PATH_MAX, "%s%c%s", drop_config_directory,
+		SLASH, ".is_running");
+	struct stat fstat;
+
+	if (stat(session_file, &fstat) > 0)
+		Error("program already running!");
+	
+	pid_t pid = fork();
+	if (pid > 0) 
+		exit(EXIT_SUCCESS);
+	if (pid < 0)
+		exit(EXIT_FAILURE);
+
+	if (pid == 0) {
+		if (setsid() < 0) {
+			Error("setsid: %\n", strerror(errno));
+		}
+		
+		printf("deomn!\n");
+		chdir(directory);
+		touch(session_file);
+		close(STDIN_FILENO);
+		close(STDOUT_FILENO);
+		close(STDERR_FILENO);
+	}
+}
+
+void cleanup(void)
+{
+	struct stat fstat;
+	if (stat(session_file, &fstat) < 0)
+		return;
+	else
+		unlink(session_file);
+}
 int main(int argc, char **argv)
 {
+	int is_daemon = 0;
+
 	if (argc < 2) {
 		show_usage();
 	} 
@@ -1425,7 +1477,12 @@ int main(int argc, char **argv)
 			run_once = 0;
 			cmd_string = argv[2];
 		}
-		
+		if (!strcmp(argv[i], "-d")) {
+			is_daemon = 1;
+			run_once = 0;
+			cmd_string = argv[2];
+		}		
+
 		if (!strcmp(argv[i], "-h")) {
 			show_usage();
 		}
@@ -1443,7 +1500,13 @@ int main(int argc, char **argv)
 
 	get_ready();
 
-	check_for_changes(directory);
+	// we need to add signals for INT etc to clean
+	// up session_file...atexit, too many
+	if (is_daemon) {
+		demonology(directory);
+	}
 
+	check_for_changes(directory);
+	puts("done!");
 	return EXIT_SUCCESS;
 }
