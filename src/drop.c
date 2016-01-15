@@ -37,6 +37,7 @@
 #include <dirent.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <signal.h>
 #include <time.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -1417,26 +1418,39 @@ void get_user_host_rsrc(char *cmd)
 
 void touch(char *path)
 {
-	printf("path is %s\n", path);
 	FILE *f = fopen(path, "w");
 	if (f == NULL)
 		Error("fopen: %s %s\n", path, strerror(errno));
-	fprintf(f, "a");
 	fclose(f);
 	fflush(f);
 }
 
-void cleanup(void)
+void cleanup(int signal_number)
 {
+	if (signal_number != SIGINT && signal_number != SIGHUP
+		&& signal_number != SIGQUIT && signal_number != SIGTERM)
+		return;
+
 	struct stat fstat;
 	if (stat(session_file, &fstat) < 0)
 		return;
 	else
 		unlink(session_file);
+
+	exit(3);
 }
 
 void demonology(char *directory)
 {
+	if (signal(SIGINT, cleanup) == SIG_ERR)
+		Error("signal: %s\n", strerror(errno));
+	if (signal(SIGHUP, cleanup) == SIG_ERR)
+		Error("signal: %s\n", strerror(errno));
+	if (signal(SIGQUIT, cleanup) == SIG_ERR)
+		Error("signal: %s\n", strerror(errno));
+	if (signal(SIGTERM, cleanup) == SIG_ERR)
+		Error("signal: %s\n", strerror(errno));
+
 	snprintf(session_file, PATH_MAX, "%s%c%s", drop_config_directory,
 		SLASH, ".is_running");
 	struct stat fstat;
@@ -1450,7 +1464,6 @@ void demonology(char *directory)
 	if (pid < 0)
 		exit(EXIT_FAILURE);
 	if (pid == 0) {
-		atexit(cleanup);
 		chdir(directory);
 		touch(session_file);
 		close(STDIN_FILENO);
