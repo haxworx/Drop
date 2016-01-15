@@ -1421,38 +1421,9 @@ void touch(char *path)
 	FILE *f = fopen(path, "w");
 	if (f == NULL)
 		Error("fopen: %s %s\n", path, strerror(errno));
-
+	fprintf(f, "a");
 	fclose(f);
-}
-
-
-void demonology(char *directory)
-{
-	snprintf(session_file, PATH_MAX, "%s%c%s", drop_config_directory,
-		SLASH, ".is_running");
-	struct stat fstat;
-
-	if (stat(session_file, &fstat) > 0)
-		Error("program already running!");
-	
-	pid_t pid = fork();
-	if (pid > 0) 
-		exit(EXIT_SUCCESS);
-	if (pid < 0)
-		exit(EXIT_FAILURE);
-
-	if (pid == 0) {
-		if (setsid() < 0) {
-			Error("setsid: %\n", strerror(errno));
-		}
-		
-		printf("deomn!\n");
-		chdir(directory);
-		touch(session_file);
-		close(STDIN_FILENO);
-		close(STDOUT_FILENO);
-		close(STDERR_FILENO);
-	}
+	fflush(f);
 }
 
 void cleanup(void)
@@ -1463,6 +1434,32 @@ void cleanup(void)
 	else
 		unlink(session_file);
 }
+
+void demonology(char *directory)
+{
+	snprintf(session_file, PATH_MAX, "%s%c%s", drop_config_directory,
+		SLASH, ".is_running");
+	struct stat fstat;
+
+	if (stat(session_file, &fstat) >= 0)
+		Error("program already running!");
+
+	pid_t pid = fork();
+	if (pid > 0) 
+		exit(EXIT_SUCCESS);
+	if (pid < 0)
+		exit(EXIT_FAILURE);
+	if (pid == 0) {
+		atexit(cleanup);
+		chdir(directory);
+		touch(session_file);
+		close(STDIN_FILENO);
+		close(STDOUT_FILENO);
+		close(STDERR_FILENO);
+	}
+}
+
+
 int main(int argc, char **argv)
 {
 	int is_daemon = 0;
