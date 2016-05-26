@@ -111,8 +111,8 @@ char *hostname = NULL;
 const char *username = NULL;
 const char *password = NULL;
 
-#define REMOTE_URI "/"
-#define REMOTE_PORT 23221 
+#define REMOTE_URI "/hive/hive.cgi"
+#define REMOTE_PORT 80 
 // no SSL for now
 int use_https_ssl = 0;
 
@@ -641,8 +641,7 @@ int act_on_file_add(File_t * first, File_t * second)
 	return isChanged;
 }
 
-/* Better hide this! 
-void RemoveDirectory(char *path)
+void remove_directory(char *path)
 {
 	DIR *d = NULL;
 	struct dirent *dirent = NULL;
@@ -680,7 +679,7 @@ void RemoveDirectory(char *path)
 	i = 0;
 	while (directories[i] != NULL)
 	{
-		RemoveDirectory(directories[i]);
+		remove_directory(directories[i]);
 		rmdir(directories[i]);
 		free(directories[i++]);
 	}
@@ -688,7 +687,7 @@ void RemoveDirectory(char *path)
 
 	closedir(d);
 }
-*/
+
 
 int rename_directory(char *path)
 {
@@ -741,7 +740,6 @@ bool create_zip_file(char *path)
 	snprintf(zip_file_path, sizeof(zip_file_path), "%s.zip", path);
 
 	char *args[5] = { 0 };
-/*	
 	char *vbscript =
 	"ArchiveFolder Wscript.Arguments.Item(0), Wscript.Arguments.Item(1)\r\n"
 	"Sub ArchiveFolder (zipFile, sFolder)\r\n"
@@ -760,8 +758,12 @@ bool create_zip_file(char *path)
         "	Loop\r\n"
 	"End With\r\n"
 	"End Sub\r\n";
-*/	
+
 	#define VBSCRIPT_PATH "zip.vbs"
+	
+	FILE *f = fopen(VBSCRIPT_PATH, "w");
+	fprintf(f, "%s", vbscript);
+	fclose(f);
 	
 	args[0] = "cscript";
 	args[1] = VBSCRIPT_PATH;
@@ -779,7 +781,9 @@ bool create_zip_file(char *path)
 
 	
 	p = wait(NULL);
-	rename_directory(path);	
+
+	unlink(VBSCRIPT_PATH);	
+	remove_directory(path);	
 
 	return true;
 }
@@ -810,6 +814,9 @@ File_t *files_in_directory(const char *path)
 			continue;
 		}
 
+		if (!strcmp(dirent->d_name, VBSCRIPT_PATH)) 
+			continue;
+
 		unsigned int unix_time_now = time(NULL);
 
 		char path_full[PATH_MAX] = { 0 };
@@ -826,7 +833,7 @@ File_t *files_in_directory(const char *path)
 				// Let directories bloom!
 			}
 			//sleep(zip_sleep_interval);
-			create_tar_file(dirent->d_name);		
+			create_zip_file(dirent->d_name);		
 		}
 		else
 		{
@@ -1323,12 +1330,27 @@ void get_ready(void)
 		Error("Could not get ENV 'HOMEPATH'");
 	}
 
+	/*
         ssize_t len = strlen(directory);
         if (directory[len - 1] == '/') {
                 directory[len - 1] = '\0';
         }
+	*/	
+	char *homepath = getenv("HOMEPATH");
+
+	char watch_dir[PATH_MAX];
+	snprintf(watch_dir,sizeof(watch_dir), "C:\\%s%c%s%c%s", homepath, '\\', "Desktop" , '\\', "hive");
+
+	directory = strdup(watch_dir);	
 	
-	snprintf(program_folder, sizeof(program_folder), "%s%c%s", directory,
+        struct stat fstats;
+        if (stat(directory, &fstats) < 0)
+        {
+                mkdir(directory, 0777);
+        }
+
+
+	snprintf(program_folder, sizeof(program_folder), "%s%c%s", homepath,
 		SLASH, DROP_CONFIG_DIR_NAME);
 	
 	drop_config_directory = strdup(program_folder);
@@ -1338,7 +1360,6 @@ void get_ready(void)
 		init_ssl();
 	}
 
-        struct stat fstats;
 
         if (stat(drop_config_directory, &fstats) < 0)
         {
@@ -1346,10 +1367,7 @@ void get_ready(void)
                 new_repository = 1;
         }
 
-        if (stat(directory, &fstats) < 0)
-        {
-                mkdir(directory, 0777);
-        }
+
 
 	char state_file_path[PATH_MAX] = { 0 };
 	snprintf(state_file_path, PATH_MAX, "%s%c%s", drop_config_directory,
@@ -1375,7 +1393,7 @@ void show_version(void)
 
 void show_usage(void)
 {
-	printf("%s [OPTIONS] username@host:/path/to/dir\n", PROGRAM_NAME);
+	printf("%s [OPTIONS] username@hostname\n", PROGRAM_NAME);
 	printf("OPTIONS:\n");
 	printf("    -l    loop forever\n");
 	printf("    -d    daemonise\n");
@@ -1388,32 +1406,19 @@ void get_user_host_rsrc(char *cmd)
 {
 	char user[BUF_MAX] = { 0 };
 	char host[BUF_MAX] = { 0 };
-	char rsrc[BUF_MAX] = { 0 };
-	char *string_copy = strdup(cmd);
 
+	char *string_copy = strdup(cmd);
 	char *s = strchr(string_copy, '@');
 	if (!s) 
 		show_usage();
 	*s = '\0';
 	snprintf(user, sizeof(user), "%s", string_copy);
+	++s;
 
-	string_copy = s + 1;
-
-	s = strchr(string_copy, ':');
-	if (!s)	
-		show_usage();
-	*s = '\0';
-	snprintf(host, sizeof(host), "%s", string_copy);
-
-	string_copy = s + 1;
-	if (!s)
-		show_usage();
+	snprintf(host, sizeof(host), "%s", s);
 	
-	snprintf(rsrc, sizeof(rsrc), "%s", string_copy);
-
 	username = strdup(user);
 	hostname = strdup(host);
-	directory = strdup(rsrc);
 }
 
 void touch(char *path)
