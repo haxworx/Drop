@@ -1,1 +1,54 @@
-../../../../templates/default
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="/styles.css">
+</head>
+<body>
+
+<table width="100%">
+<tr><td>Welcome to your local cloud!</td><td align="right">
+<form action="/index.cgi" method="post">
+<input type="hidden" name="action" value="exit">
+<input type="submit" value="Log out">
+</form>
+</td></tr>
+</table>
+<hr>
+<p style="color: darkred; font-weight: bold;">[% MESSAGE %]</p>
+</form>
+<table width="100%">
+<tr><td width="250px">
+<h4>Existing users:</h4>
+<form action="/index.cgi" method="post">
+<input type="hidden" name="action" value="del">
+	[% FOREACH SQL_DATA -%]
+<p><input type="checkbox" name="username" value="[% username %]">[% username %]</p>
+	[% END %]
+<input type="submit" value="Del User">
+</form>
+</td>
+<td valign="top">
+</td></tr>
+</table>
+<hr>
+<h3>Add users on your network</h3>
+<form action="/index.cgi" method="post">
+<table>
+<tr>
+<td>Username </td><td><input type="text" name="username"></td></tr>
+<td>Password </td><td><input type="password" name="password"></td></tr>
+<input type="hidden" name="action" value="add">
+<tr><td></td><td><input type="submit" value="Add User"></td></tr>
+</table>
+</form>
+<hr>
+<h3>Change admin password</h3>
+<form action="/index.cgi" method="post">
+	<input type="hidden" name="action" value="pwd">
+	<table>
+	<tr><td>New password</td><td><input name="password" type="password"></td></tr>
+	<tr><td></td><td><input type="submit" value="Change"></td></tr>
+	</table>
+</form>
+<hr>
+</body>
+</html>
