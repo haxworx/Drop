@@ -129,7 +129,7 @@ our $SECRET = "JesusIsLord";
 sub create_cookie {
         my ($self, $username, $password) = @_;
 
-        my $secret = "$username:$SECRET";
+        my $secret = "$username:$SECRET:$password";
 
         my $cookie_value = md5_hex($secret);
 
@@ -150,7 +150,14 @@ sub create_cookie {
 sub check_cookie {
         my ($self, $cookie, $username) = @_;
 
-        my $secret = "$username:$SECRET";
+	my $SQL = "SELECT * FROM admin WHERE username = ?";
+	my $sth = $self->dbh->prepare($SQL);
+	$sth->execute($username);
+	my $user = $sth->fetchrow_hashref();
+	if (! defined $user) { return 0; };
+	my $password = $user->{'password'};
+
+        my $secret = "$username:$SECRET:$password";
 
         $secret = md5_hex($secret);
 
