@@ -1336,10 +1336,15 @@ void get_ready(void)
                 directory[len - 1] = '\0';
         }
 	*/	
-	char *homepath = getenv("HOMEPATH");
-
 	char watch_dir[PATH_MAX];
-	snprintf(watch_dir,sizeof(watch_dir), "C:\\%s%c%s%c%s", homepath, '\\', "Desktop" , '\\', "hive");
+
+	char *homepath = getenv("HOMEPATH");
+	if (homepath) {
+		snprintf(watch_dir,sizeof(watch_dir), "C:\\%s%c%s%c%s", homepath, '\\', "Desktop" , '\\', "hive");
+	} else {
+		homepath = user_home;
+		snprintf(watch_dir, sizeof(watch_dir), "%s/%s", homepath, "hive");
+	}
 
 	directory = strdup(watch_dir);	
 	
