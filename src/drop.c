@@ -112,7 +112,7 @@ const char *username = NULL;
 const char *password = NULL;
 
 #define REMOTE_URI "/hive/hive.cgi"
-#define REMOTE_PORT 80 
+#define REMOTE_PORT 12345 
 // no SSL for now
 int use_https_ssl = 0;
 
